@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Building2, FolderKanban, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -13,7 +13,15 @@ interface GlobalSearchModalProps {
 
 export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   const [term, setTerm] = useState("");
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   const navigate = useNavigate();
+
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (!isOpen) {
+      setTerm("");
+    }
+  }
 
   const workspacesQuery = useQuery({
     queryKey: ["workspaces"],
@@ -34,12 +42,6 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   );
 
   const matchingProjects = projectsQuery.data?.content ?? [];
-
-  useEffect(() => {
-    if (!isOpen) {
-      setTerm("");
-    }
-  }, [isOpen]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">

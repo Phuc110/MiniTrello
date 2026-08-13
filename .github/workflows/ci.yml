@@ -18,10 +18,10 @@ jobs:
     name: Backend (build + test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: "21"
           distribution: "temurin"
@@ -39,7 +39,7 @@ jobs:
 
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-test-reports
           path: backend/target/surefire-reports/
@@ -49,10 +49,10 @@ jobs:
     name: Frontend (lint + test + build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: "npm"
@@ -75,7 +75,7 @@ jobs:
         run: npm run build
 
       - name: Upload build output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-dist
           path: frontend/dist/

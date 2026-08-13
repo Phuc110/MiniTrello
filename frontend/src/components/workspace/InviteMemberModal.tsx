@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Mail, Trash2, Users } from "lucide-react";
+import type { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import { projectApi } from "@/api/projects";
+import type { ApiEnvelope } from "@/api/axiosClient";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
@@ -36,8 +38,9 @@ export function InviteMemberModal({ projectId, isOpen, onClose }: InviteMemberMo
       setEmail("");
       void queryClient.invalidateQueries({ queryKey: ["project-members", projectId] });
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.message || "Could not invite member. Make sure the user is registered.";
+    onError: (err) => {
+      const msg = (err as AxiosError<ApiEnvelope<never>>).response?.data?.message ||
+        "Could not invite member. Make sure the user is registered.";
       toast.error(msg);
     },
   });
