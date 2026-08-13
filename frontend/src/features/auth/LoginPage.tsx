@@ -1,0 +1,81 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { loginSchema, type LoginFormValues } from "@/lib/validation";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import type { AxiosError } from "axios";
+import type { ApiEnvelope } from "@/api/axiosClient";
+
+export function LoginPage() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+
+  const onSubmit = async (values: LoginFormValues) => {
+    setServerError(null);
+    try {
+      await login(values);
+      const from = (location.state as { from?: Location })?.from?.pathname ?? "/workspaces";
+      navigate(from, { replace: true });
+      toast.success("Welcome back");
+    } catch (err) {
+      const message =
+        (err as AxiosError<ApiEnvelope<never>>).response?.data?.message ?? "Something went wrong. Please try again.";
+      setServerError(message);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-paper dark:bg-ink-900 px-4">
+      <div className="card w-full max-w-sm p-8">
+        <h1 className="font-display text-2xl font-semibold text-ink-900 dark:text-paper">Welcome back</h1>
+        <p className="mt-1 text-sm text-ink-400">Log in to your workspaces</p>
+
+        <form className="mt-6 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Input
+            label="Email"
+            type="email"
+            autoComplete="email"
+            error={errors.email?.message}
+            {...register("email")}
+          />
+          <Input
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            error={errors.password?.message}
+            {...register("password")}
+          />
+
+          {serverError && (
+            <p role="alert" className="text-sm text-priority-urgent">
+              {serverError}
+            </p>
+          )}
+
+          <Button type="submit" isLoading={isSubmitting} className="mt-2 w-full">
+            Log in
+          </Button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-ink-400">
+          Don&apos;t have an account?{" "}
+          <Link to="/register" className="font-medium text-accent-500 hover:underline">
+            Sign up
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}

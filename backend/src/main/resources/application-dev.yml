@@ -1,0 +1,10 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    com.minitrello: DEBUG
+    org.hibernate.SQL: DEBUG
