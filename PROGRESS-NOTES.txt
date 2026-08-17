@@ -1,0 +1,114 @@
+================================================================================
+ MINI TRELLO — CSE 456 Final Project
+ PROGRESS NOTES (cập nhật: 2026-08-13)
+================================================================================
+
+MỤC ĐÍCH DỰ ÁN
+--------------------------------------------------------------------------------
+- MiniTrello: ứng dụng quản lý task kanban (kiểu Trello) — full-stack.
+  - Backend: Spring Boot 3.3, Java 21, MySQL 8.4, Redis (cấu hình), Flyway,
+    Spring Security + JWT, MockMvc tests.
+  - Frontend: React 19 + TypeScript + Vite 6, Tailwind, React Query,
+    @hello-pangea/dnd (drag & drop kanban).
+  - Chạy bằng Docker Compose (mysql + redis + backend + frontend).
+- Repo: https://github.com/Phuc110/MiniTrello  (branch: main)
+
+TÌNH TRẠNG HOÀN THÀNH
+--------------------------------------------------------------------------------
+[OK]   Toàn bộ tính năng app (auth, workspace, project, board/board-list,
+      task drag&drop, tags, assignees, notifications, rate-limit, soft-delete)
+[OK]   Docker Compose 1-lệnh: docker compose up --build
+[OK]   Demo data tự seed: pm@test.com / member@test.com, password DemoPass1
+      (đã test end-to-end qua API)
+[OK]   Maven wrapper (./mvnw), CI chạy được trên GitHub
+[OK]   Root .gitignore, README, DEPLOYMENT.md, MIT LICENSE
+[OK]   Backend: 49 test unit/controller pass local
+[OK]   Frontend: 16 test pass local (vitest)
+
+CÔNG VIỆC ĐANG LÀM: SỬA CI RED TRÊN GITHUB ACTIONS
+--------------------------------------------------------------------------------
+Trước khi sửa, CI fail 4 job: Frontend CI, Backend CI, Docker publish (2 job).
+
+3 LỖI ĐÃ XÁC NHẬN VÀ ĐÃ SỬA:
+
+1) Frontend — npm ci thất bại (ERESOLVE peer conflict)
+   Nguyên nhân: @hello-pangea/dnd@17.0.0 yêu cầu peer react@^18.0.0,
+   nhưng project dùng React 19. Dockerfile trước đó dùng
+   "npm install --legacy-peer-deps" nên image build được, còn CI chạy
+   "npm ci" (strict) thì chết.
+   Fix: nâng lên @hello-pangea/dnd@^18.0.1 (hỗ trợ react ^18 || ^19),
+   regenerate package-lock.json, đổi Dockerfile sang "npm ci".
+
+2) Frontend — thiếu eslint config
+   Nguyên nhân: eslint@9 (flat config) không có eslint.config.js
+   => "npm run lint" fail ngay. Codebase chưa từng có config lint.
+   Fix: cài typescript-eslint, eslint-plugin-react-hooks, react-refresh,
+   globals; thêm frontend/eslint.config.js (flat config chuẩn Vite React-TS);
+   sửa 2 lỗi lint thật:
+   - GlobalSearchModal.tsx: bỏ setState trong useEffect (dùng pattern
+     "adjust state during render").
+   - InviteMemberModal.tsx: thay (err: any) bằng AxiosError<ApiEnvelope<never>>.
+   Kết quả: npm run lint PASS local (exit 0).
+
+3) Docker publish — invalid ghcr.io tag
+   Nguyên nhân: IMAGE_NAMESPACE = github.repository = "Phuc110/MiniTrello"
+   (có chữ HOA). ghcr.io yêu cầu tag lowercase
+   => buildx fail "repository name must be lowercase". Lỗi cache gha
+   trước đây là red herring, chính tag này mới là lỗi thật.
+   Fix: thêm step "echo namespace=${GITHUB_REPOSITORY,,}" rồi dùng
+   steps.meta.outputs.namespace trong tags.
+
+KÈM THEO: bump actions hết warning Node 20 deprecated:
+   checkout/setup-node/setup-java/upload-artifact v4 -> v5
+   (ci.yml + docker-publish.yml).
+
+TRẠNG THÁI CI HIỆN TẠI (commit 1ea8e24, đã push)
+--------------------------------------------------------------------------------
+[GREEN]  Frontend (lint + test + build) — SUCCESS
+[RED]    Backend (build + test) — vẫn FAIL (deterministic, fail cả 3 commit)
+[?]      Docker publish — vừa push fix tag lowercase, đang chờ kết quả
+
+VẤN ĐỀ CÒN LẠI: BACKEND CI FAIL — CHƯA XÁC ĐỊNH ĐƯỢC NGUYÊN NHÂN
+--------------------------------------------------------------------------------
+Đã loại trừ (kiểm tra & chạy local):
+- mvnw: LF, exec bit OK; script posix chạy được trong container Linux.
+- maven-wrapper.properties chuẩn (3.9.9).
+- package -DskipTests + repackage: BUILD SUCCESS local.
+- 49 test unit/controller: PASS local.
+- Integration tests (4 file) đọc kỹ: viết đúng, tự chứa dữ liệu, không cần
+  Redis (RateLimitFilter in-memory, scheduler chỉ dùng DB, không có RedisTemplate).
+- Không H2 trong classpath; @AutoConfigureTestDatabase(replace=NONE) đã đúng.
+- Redis không bắt buộc lúc startup (Lettuce lazy).
+
+Chưa tái hiện được vì MÔI TRƯỜNG LOCAL bị bug Docker Desktop:
+- Testcontainers (1.20.1) kết nối npipe dockerDesktopLinuxEngine bị HTTP 400
+  (BadRequest, trả Info rỗng) — kể cả chạy mvn trong container Linux với
+  /var/run/docker.sock mount. => local không chạy được integration tests,
+  nhưng ubuntu runner dùng /var/run/docker.sock native nên không bị lỗi này.
+
+=> BƯỚC TIẾP THEO (cần user):
+- Mở GitHub > tab Actions > "Backend (build + test)" run mới nhất
+  > click step "Run tests (unit + controller + integration via Testcontainers)"
+  > copy toàn bộ log fail vào paste cho opencode để xác định lỗi thật.
+
+=> ĐÃ XÁC ĐỊNH VÀ SỬA (2026-08-17):
+5) Backend Integration Tests — MySQL 8.4 authentication failure (cũng là
+   nguyên nhân duy nhất còn lại):
+   Nguyên nhân: MySQL 8.4 mặc định dùng caching_sha2_password plugin.
+   Testcontainers' MySQLContainer.getJdbcUrl() trả về URL dạng
+   jdbc:mysql://host:port/db — KHÔNG có allowPublicKeyRetrieval=true.
+   MySQL Connector/J 8.x (Spring Boot 3.3.4 managed) chặn kết nối vì
+   "Public Key Retrieval is not allowed".
+   Fix:
+   - Thay mysql::getJdbcUrl trong @DynamicPropertySource của cả 4 file
+     integration test thành:
+       () -> mysql.getJdbcUrl() + "?allowPublicKeyRetrieval=true&useSSL=false"
+   - Tạo src/test/resources/application-test.yml: tắt Redis + Mail
+     auto-config (tránh bean creation error trên CI không có Redis/mail).
+   - Thêm @ActiveProfiles("test") vào cả 4 integration test class để
+     load application-test.yml.
+
+Ghi chú môi trường local:
+- core.autocrlf=true (mvnw vẫn LF trong index, không ảnh hưởng CI)
+- Docker Desktop 29.7.2 đang chạy, compose stack local đang UP
+  (cse456finalproject-backend-1 healthy, frontend, redis, mysql)
