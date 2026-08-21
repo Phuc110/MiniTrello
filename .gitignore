@@ -33,3 +33,6 @@ HELP.md
 
 .vercel
 .env*
+
+# Personal session/process notes (local only)
+*-NOTES.txt
