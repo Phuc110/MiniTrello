@@ -70,9 +70,15 @@ design rationale.
 ## Running locally
 
 ```bash
-cp backend/.env.example backend/.env   # fill in JWT_SECRET at minimum
-docker compose up --build
+docker compose up --build          # zero-config: dev defaults apply
+# recommended — customize secrets / enable demo data:
+cp backend/.env.example backend/.env   # at minimum set your own JWT_SECRET
 ```
+
+The stack boots out of the box with placeholder dev credentials
+(`change_me` DB password, `dev_only_…` JWT secret). `backend/.env` is
+optional but overrides everything when present; never reuse the dev
+defaults outside local development.
 
 Backend: `http://localhost:8080` · Swagger UI: `http://localhost:8080/swagger-ui.html`
 Frontend (dev server): `http://localhost:5173` — proxies `/api` and `/ws` to the backend (see `frontend/vite.config.ts`)

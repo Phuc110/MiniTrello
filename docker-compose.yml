@@ -34,7 +34,10 @@ services:
       redis:
         condition: service_started
     env_file:
-      - ./backend/.env
+      # Optional: `cp backend/.env.example backend/.env` to customize.
+      # Without it, the dev defaults below (and in application.yml) apply.
+      - path: ./backend/.env
+        required: false
     environment:
       DB_HOST: mysql
       REDIS_HOST: redis
