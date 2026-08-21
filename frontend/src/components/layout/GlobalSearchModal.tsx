@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Building2, FolderKanban, X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Search, Building2, Trello, X } from "lucide-react";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { workspaceApi } from "@/api/workspaces";
-import { projectApi } from "@/api/projects";
+import { boardApi } from "@/api/boards";
 import { Modal } from "@/components/ui/Modal";
+import type { Board } from "@/types";
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -29,19 +30,25 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     enabled: isOpen,
   });
 
-  const firstWorkspace = workspacesQuery.data?.[0];
+  const workspaces = workspacesQuery.data ?? [];
 
-  const projectsQuery = useQuery({
-    queryKey: ["projects", firstWorkspace?.id, term],
-    queryFn: () => projectApi.search(firstWorkspace!.id, { name: term || undefined, size: 20 }),
-    enabled: isOpen && !!firstWorkspace && term.trim().length > 0,
+  const boardQueries = useQueries({
+    queries: workspaces.map((w) => ({
+      queryKey: ["boards", w.id],
+      queryFn: () => boardApi.listByWorkspace(w.id),
+      enabled: isOpen && term.trim().length > 0,
+    })),
   });
 
-  const matchingWorkspaces = (workspacesQuery.data ?? []).filter((w) =>
+  const allBoards: Board[] = boardQueries.flatMap((q) => q.data ?? []);
+
+  const matchingWorkspaces = workspaces.filter((w) =>
     w.name.toLowerCase().includes(term.toLowerCase())
   );
 
-  const matchingProjects = projectsQuery.data?.content ?? [];
+  const matchingBoards = allBoards.filter((b) =>
+    b.name.toLowerCase().includes(term.toLowerCase())
+  );
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
@@ -52,7 +59,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
             autoFocus
             type="text"
             className="w-full rounded-xl border border-ink-200 dark:border-ink-600 bg-ink-50/50 dark:bg-ink-900/50 pl-11 pr-10 py-3 text-base text-ink-900 dark:text-paper placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-500"
-            placeholder="Search workspaces, projects..."
+            placeholder="Search workspaces, boards..."
             value={term}
             onChange={(e) => setTerm(e.target.value)}
           />
@@ -69,7 +76,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
         <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto pr-1">
           {!term.trim() && (
             <div className="py-8 text-center text-sm text-ink-400">
-              Type something to search across workspaces and projects...
+              Type something to search across workspaces and boards...
             </div>
           )}
 
@@ -85,7 +92,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                       <button
                         key={w.id}
                         onClick={() => {
-                          navigate(`/workspaces/${w.id}/projects`);
+                          navigate(`/workspaces/${w.id}`);
                           onClose();
                         }}
                         className="flex items-center gap-3 rounded-lg p-2.5 text-left hover:bg-ink-50 dark:hover:bg-ink-700/60 transition-colors"
@@ -103,29 +110,26 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                 </div>
               )}
 
-              {matchingProjects.length > 0 && (
+              {matchingBoards.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-ink-400 mb-2 px-1">
-                    Projects ({matchingProjects.length})
+                    Boards ({matchingBoards.length})
                   </h4>
                   <div className="flex flex-col gap-1">
-                    {matchingProjects.map((p) => (
+                    {matchingBoards.map((b) => (
                       <button
-                        key={p.id}
+                        key={b.id}
                         onClick={() => {
-                          navigate(`/projects/${p.id}`);
+                          navigate(`/boards/${b.id}`);
                           onClose();
                         }}
                         className="flex items-center gap-3 rounded-lg p-2.5 text-left hover:bg-ink-50 dark:hover:bg-ink-700/60 transition-colors"
                       >
-                        <FolderKanban className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                        <Trello className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                         <div>
                           <p className="text-sm font-semibold text-ink-900 dark:text-paper">
-                            {p.name}
+                            {b.name}
                           </p>
-                          {p.description && (
-                            <p className="text-xs text-ink-400 line-clamp-1">{p.description}</p>
-                          )}
                         </div>
                       </button>
                     ))}
@@ -133,9 +137,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                 </div>
               )}
 
-              {matchingWorkspaces.length === 0 && matchingProjects.length === 0 && (
+              {matchingWorkspaces.length === 0 && matchingBoards.length === 0 && (
                 <div className="py-8 text-center text-sm text-ink-400">
-                  No matching workspaces or projects found for &quot;{term}&quot;.
+                  No matching workspaces or boards found for &quot;{term}&quot;.
                 </div>
               )}
             </>

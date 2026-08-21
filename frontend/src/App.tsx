@@ -8,7 +8,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RegisterPage } from "@/features/auth/RegisterPage";
 import { WorkspaceListPage } from "@/features/workspace/WorkspaceListPage";
-import { ProjectListPage } from "@/features/project/ProjectListPage";
+import { WorkspaceDetailPage } from "@/features/workspace/WorkspaceDetailPage";
 import { BoardPage } from "@/features/board/BoardPage";
 
 export default function App() {
@@ -24,8 +24,8 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/workspaces" element={<WorkspaceListPage />} />
-                <Route path="/workspaces/:workspaceId/projects" element={<ProjectListPage />} />
-                <Route path="/projects/:projectId" element={<BoardPage />} />
+                <Route path="/workspaces/:workspaceId" element={<WorkspaceDetailPage />} />
+                <Route path="/boards/:boardId" element={<BoardPage />} />
               </Route>
             </Route>
 

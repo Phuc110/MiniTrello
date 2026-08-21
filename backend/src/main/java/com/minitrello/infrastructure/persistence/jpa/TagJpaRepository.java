@@ -7,6 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TagJpaRepository extends JpaRepository<Tag, UUID> {
-    List<Tag> findAllByProjectId(UUID projectId);
-    boolean existsByProjectIdAndName(UUID projectId, String name);
+    List<Tag> findAllByWorkspaceId(UUID workspaceId);
+    boolean existsByWorkspaceIdAndName(UUID workspaceId, String name);
 }

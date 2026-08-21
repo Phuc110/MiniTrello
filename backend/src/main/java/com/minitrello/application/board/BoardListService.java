@@ -71,6 +71,13 @@ public class BoardListService {
         return boardMapper.toResponse(moving);
     }
 
+    @Transactional
+    public void deleteList(UUID boardListId, UUID callerId) {
+        BoardList boardList = boardAccessResolver.requireBoardList(boardListId);
+        boardAccessResolver.requireMembershipForBoardList(boardListId, callerId);
+        boardListRepository.softDeleteById(boardListId);
+    }
+
     private String resolveNeighborPosition(UUID boardId, UUID neighborListId) {
         if (neighborListId == null) {
             return null;

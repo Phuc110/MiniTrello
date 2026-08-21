@@ -18,12 +18,6 @@ export const registerSchema = z.object({
 });
 export type RegisterFormValues = z.infer<typeof registerSchema>;
 
-export const createProjectSchema = z.object({
-  name: z.string().min(1, "Project name is required").max(150),
-  description: z.string().max(5000).optional(),
-});
-export type CreateProjectFormValues = z.infer<typeof createProjectSchema>;
-
 export const taskSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
   description: z.string().max(10000).optional(),

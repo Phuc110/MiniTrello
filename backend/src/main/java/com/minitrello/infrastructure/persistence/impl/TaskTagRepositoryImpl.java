@@ -33,6 +33,12 @@ public class TaskTagRepositoryImpl implements TaskTagRepository {
     }
 
     @Override
+    @Transactional
+    public void deleteAllByTagId(UUID tagId) {
+        jpaRepository.deleteByTag_Id(tagId);
+    }
+
+    @Override
     public boolean existsByTaskIdAndTagId(UUID taskId, UUID tagId) {
         return jpaRepository.existsByTask_IdAndTag_Id(taskId, tagId);
     }

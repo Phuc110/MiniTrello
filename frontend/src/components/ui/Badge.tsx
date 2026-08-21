@@ -1,11 +1,10 @@
 import clsx from "clsx";
-import type { Priority, ProjectRole } from "@/types";
+import type { Priority } from "@/types";
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: "default" | "priority" | "role" | "accent" | "outline";
+  variant?: "default" | "priority" | "accent" | "outline";
   priority?: Priority;
-  role?: ProjectRole;
   className?: string;
 }
 
@@ -16,18 +15,10 @@ const PRIORITY_STYLES: Record<Priority, string> = {
   URGENT: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800",
 };
 
-const ROLE_STYLES: Record<ProjectRole, string> = {
-  OWNER: "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800",
-  MANAGER: "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
-  CONTRIBUTOR: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-  VIEWER: "bg-ink-50 text-ink-600 dark:bg-ink-800 dark:text-ink-300 border-ink-200 dark:border-ink-700",
-};
-
 export function Badge({
   children,
   variant = "default",
   priority,
-  role,
   className,
 }: BadgeProps) {
   let styleClass =
@@ -35,8 +26,6 @@ export function Badge({
 
   if (variant === "priority" && priority) {
     styleClass = clsx(styleClass, PRIORITY_STYLES[priority]);
-  } else if (variant === "role" && role) {
-    styleClass = clsx(styleClass, ROLE_STYLES[role]);
   } else if (variant === "accent") {
     styleClass = clsx(
       styleClass,

@@ -1,8 +1,8 @@
-import { Link, useLocation, useParams } from "react-router-dom";
-import { ChevronRight, Home, ArrowLeft } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { ChevronRight, Home } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { workspaceApi } from "@/api/workspaces";
-import { projectApi } from "@/api/projects";
+import { boardApi } from "@/api/boards";
 
 interface BreadcrumbsProps {
   showBackButton?: boolean;
@@ -11,10 +11,8 @@ interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({ showBackButton = true, backTo, backLabel }: BreadcrumbsProps) {
-  const location = useLocation();
-  const { workspaceId, projectId } = useParams<{ workspaceId?: string; projectId?: string }>();
+  const { workspaceId, boardId } = useParams<{ workspaceId?: string; boardId?: string }>();
 
-  // Fetch workspace details if workspaceId is present
   const workspaceQuery = useQuery({
     queryKey: ["workspace", workspaceId],
     queryFn: () => workspaceApi.getById(workspaceId!),
@@ -22,38 +20,32 @@ export function Breadcrumbs({ showBackButton = true, backTo, backLabel }: Breadc
     retry: false,
   });
 
-  // Fetch project details if projectId is present
-  const projectQuery = useQuery({
-    queryKey: ["project", projectId],
-    queryFn: () => projectApi.getById(projectId!),
-    enabled: !!projectId,
+  const boardQuery = useQuery({
+    queryKey: ["board", boardId],
+    queryFn: () => boardApi.getById(boardId!),
+    enabled: !!boardId,
     retry: false,
   });
 
-  const activeWorkspaceId = workspaceId || projectQuery.data?.workspaceId;
+  // If we have a boardId but no workspaceId, fetch the workspace via the board's workspaceId
+  const effectiveWorkspaceId = workspaceId || boardQuery.data?.workspaceId;
 
   const activeWorkspaceQuery = useQuery({
-    queryKey: ["workspace", activeWorkspaceId],
-    queryFn: () => workspaceApi.getById(activeWorkspaceId!),
-    enabled: !!activeWorkspaceId && !workspaceId,
+    queryKey: ["workspace", effectiveWorkspaceId],
+    queryFn: () => workspaceApi.getById(effectiveWorkspaceId!),
+    enabled: !!effectiveWorkspaceId && !workspaceId,
     retry: false,
   });
 
   const workspace = workspaceQuery.data || activeWorkspaceQuery.data;
-  const project = projectQuery.data;
+  const board = boardQuery.data;
 
-  // Determine back destination
   let computedBackTo = backTo;
   let computedBackLabel = backLabel;
 
-  if (!computedBackTo) {
-    if (location.pathname.startsWith("/projects/") && project) {
-      computedBackTo = `/workspaces/${project.workspaceId}/projects`;
-      computedBackLabel = "Back to Projects";
-    } else if (location.pathname.includes("/projects")) {
-      computedBackTo = "/workspaces";
-      computedBackLabel = "Back to Workspaces";
-    }
+  if (!computedBackTo && workspace) {
+    computedBackTo = `/workspaces/${workspace.id}`;
+    computedBackLabel = workspace.name;
   }
 
   return (
@@ -71,7 +63,7 @@ export function Breadcrumbs({ showBackButton = true, backTo, backLabel }: Breadc
           <>
             <ChevronRight className="h-3.5 w-3.5 text-ink-300 dark:text-ink-600 flex-shrink-0" />
             <Link
-              to={`/workspaces/${workspace.id}/projects`}
+              to={`/workspaces/${workspace.id}`}
               className="hover:text-accent-600 dark:hover:text-accent-400 transition-colors truncate max-w-[150px]"
             >
               {workspace.name}
@@ -79,11 +71,11 @@ export function Breadcrumbs({ showBackButton = true, backTo, backLabel }: Breadc
           </>
         )}
 
-        {project && (
+        {board && (
           <>
             <ChevronRight className="h-3.5 w-3.5 text-ink-300 dark:text-ink-600 flex-shrink-0" />
             <span className="text-ink-900 dark:text-paper font-semibold truncate max-w-[180px]">
-              {project.name}
+              {board.name}
             </span>
           </>
         )}
@@ -94,7 +86,6 @@ export function Breadcrumbs({ showBackButton = true, backTo, backLabel }: Breadc
           to={computedBackTo}
           className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-semibold text-ink-700 dark:text-ink-200 bg-ink-50 dark:bg-ink-700 hover:bg-ink-100 dark:hover:bg-ink-600 transition-colors"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
           <span>{computedBackLabel || "Back"}</span>
         </Link>
       )}

@@ -18,7 +18,7 @@ public interface BoardListRepository {
 
     Optional<BoardList> findFirstByBoardIdAndPositionGreaterThanOrderByPositionAsc(UUID boardId, String position);
 
-    void softDeleteByProjectId(UUID projectId);
-
     void softDeleteByWorkspaceId(UUID workspaceId);
+
+    void softDeleteById(UUID id);
 }

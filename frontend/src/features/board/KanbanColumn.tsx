@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
-import { Plus, MoreHorizontal, X } from "lucide-react";
+import { Plus, MoreHorizontal, X, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import { boardApi } from "@/api/boards";
 import { taskApi } from "@/api/tasks";
 import { TaskCard } from "@/features/task/TaskCard";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -14,6 +15,7 @@ interface KanbanColumnProps {
   tasks: Task[];
   isLoading: boolean;
   onTaskClick: (task: Task) => void;
+  boardId: string;
 }
 
 export function KanbanColumn({
@@ -22,9 +24,11 @@ export function KanbanColumn({
   tasks,
   isLoading,
   onTaskClick,
+  boardId,
 }: KanbanColumnProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
@@ -37,6 +41,20 @@ export function KanbanColumn({
     onError: () => toast.error("Couldn't create the task. Please try again."),
   });
 
+  const deleteListMutation = useMutation({
+    mutationFn: () => boardApi.removeList(list.id),
+    onSuccess: () => {
+      toast.success(`List "${list.name}" deleted`);
+      setMenuOpen(false);
+      queryClient.setQueryData<BoardListColumn[]>(
+        ["board-lists", boardId],
+        (old) => (old ?? []).filter((l) => l.id !== list.id)
+      );
+      void queryClient.invalidateQueries({ queryKey: ["board-lists", boardId] });
+    },
+    onError: () => toast.error("Couldn't delete the list. Please try again."),
+  });
+
   return (
     <Draggable draggableId={list.id} index={index}>
       {(columnProvided) => (
@@ -45,10 +63,10 @@ export function KanbanColumn({
           {...columnProvided.draggableProps}
           className="flex w-72 sm:w-80 flex-shrink-0 flex-col rounded-2xl border border-ink-200/60 dark:border-ink-700/60 bg-ink-100/60 dark:bg-ink-800/80 p-2.5 max-h-full shadow-xs"
         >
-          {/* Column Header */}
+          {/* Column Header — stays pinned (outside the card scroll area) */}
           <div
             {...columnProvided.dragHandleProps}
-            className="flex items-center justify-between px-2 py-2 cursor-grab active:cursor-grabbing select-none"
+            className="flex items-center justify-between px-2 py-2 mb-1 border-b border-ink-200/70 dark:border-ink-700/60 cursor-grab active:cursor-grabbing select-none"
           >
             <div className="flex items-center gap-2">
               <h3 className="font-display text-sm font-bold text-ink-900 dark:text-paper">
@@ -59,12 +77,41 @@ export function KanbanColumn({
               </span>
             </div>
 
-            <button
-              className="rounded-lg p-1 text-ink-400 hover:bg-white/60 hover:text-ink-700 dark:hover:bg-ink-700 dark:hover:text-ink-200 transition-colors"
-              aria-label="Column options"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((v) => !v);
+                }}
+                className="rounded-lg p-1 text-ink-400 hover:bg-white/60 hover:text-ink-700 dark:hover:bg-ink-700 dark:hover:text-ink-200 transition-colors"
+                aria-label="Column options"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                  <div
+                    className="absolute right-0 top-8 z-40 min-w-[160px] rounded-xl border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 shadow-xl py-1 animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        if (window.confirm(`Delete list "${list.name}" and all its cards?`)) {
+                          deleteListMutation.mutate();
+                        }
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 flex-shrink-0" />
+                      Delete list
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Cards Droppable List Container */}
@@ -74,7 +121,11 @@ export function KanbanColumn({
                 ref={provided.innerRef}
                 {...provided.droppableProps}
                 className={
-                  "flex min-h-[40px] flex-1 flex-col gap-2.5 overflow-y-auto rounded-xl p-1 transition-colors scrollbar-thin" +
+                  // Cap at ~3 cards (3 × ~110px card + gaps). Cards carry
+                  // flex-shrink-0 so flexbox can NOT squeeze them to fit —
+                  // the container scrolls instead, with a slim custom scrollbar.
+                  "flex min-h-[40px] flex-1 flex-col gap-3 overflow-y-auto rounded-xl p-1.5 max-h-[400px] transition-colors " +
+                  "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400" +
                   (snapshot.isDraggingOver
                     ? " bg-accent-50/50 dark:bg-accent-950/20 ring-2 ring-dashed ring-accent-400/50"
                     : "")
@@ -82,8 +133,8 @@ export function KanbanColumn({
               >
                 {isLoading ? (
                   <>
-                    <Skeleton className="h-24 rounded-xl" />
-                    <Skeleton className="h-24 rounded-xl" />
+                    <Skeleton className="h-24 rounded-xl flex-shrink-0" />
+                    <Skeleton className="h-24 rounded-xl flex-shrink-0" />
                   </>
                 ) : (
                   tasks.map((task, taskIndex) => (
@@ -100,8 +151,8 @@ export function KanbanColumn({
             )}
           </Droppable>
 
-          {/* Trello-Style Add Card Form */}
-          <div className="mt-2 pt-1">
+          {/* List Footer — stays pinned (outside the card scroll area) */}
+          <div className="mt-2 border-t border-ink-200/70 pt-1 dark:border-ink-700/60">
             {isAdding ? (
               <form
                 className="flex flex-col gap-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-800 p-2.5 shadow-sm"

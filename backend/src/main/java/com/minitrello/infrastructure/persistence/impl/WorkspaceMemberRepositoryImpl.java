@@ -45,5 +45,10 @@ public class WorkspaceMemberRepositoryImpl implements WorkspaceMemberRepository 
     public void deleteByWorkspaceId(UUID workspaceId) {
         jpaRepository.deleteByWorkspace_Id(workspaceId);
     }
+
+    @Override
+    public void deleteByWorkspaceIdAndUserId(UUID workspaceId, UUID userId) {
+        jpaRepository.deleteByWorkspace_IdAndUser_Id(workspaceId, userId);
+    }
 }
 

@@ -62,6 +62,15 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(response, httpRequest.getRequestURI()));
     }
 
+    @Operation(summary = "Get all tasks assigned to the current user across all workspaces")
+    @GetMapping("/api/tasks/my-tasks")
+    public ResponseEntity<ApiResponse<List<TaskResponse>>> myTasks(
+            @AuthenticationPrincipal CustomUserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        List<TaskResponse> response = taskService.getMyTasks(principal.getId());
+        return ResponseEntity.ok(ApiResponse.success(response, httpRequest.getRequestURI()));
+    }
+
     @Operation(summary = "Get a single task by id")
     @GetMapping("/api/tasks/{taskId}")
     public ResponseEntity<ApiResponse<TaskResponse>> getById(

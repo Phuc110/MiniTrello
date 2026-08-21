@@ -1,5 +1,4 @@
 export type SystemRole = "ADMIN" | "MEMBER";
-export type ProjectRole = "OWNER" | "MANAGER" | "CONTRIBUTOR" | "VIEWER";
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 export interface User {
@@ -24,25 +23,9 @@ export interface Workspace {
   canDelete: boolean;
 }
 
-export interface Project {
-  id: string;
-  workspaceId: string;
-  name: string;
-  description: string | null;
-  callerRole: ProjectRole;
-  createdAt: string;
-}
-
-export interface ProjectMember {
-  userId: string;
-  email: string;
-  fullName: string;
-  role: ProjectRole;
-}
-
 export interface Board {
   id: string;
-  projectId: string;
+  workspaceId: string;
   name: string;
   createdAt: string;
 }
@@ -100,4 +83,3 @@ export interface Notification {
   createdAt: string;
   readAt: string | null;
 }
-

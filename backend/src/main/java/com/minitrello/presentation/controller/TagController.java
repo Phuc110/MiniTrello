@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-@Tag(name = "Tags")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Tags")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequiredArgsConstructor
@@ -31,25 +32,35 @@ public class TagController {
 
     private final TagService tagService;
 
-    @Operation(summary = "Create a tag in a project's tag vocabulary")
-    @PostMapping("/api/projects/{projectId}/tags")
+    @Operation(summary = "Create a tag in a workspace's tag vocabulary")
+    @PostMapping("/api/workspaces/{workspaceId}/tags")
     public ResponseEntity<ApiResponse<TagResponse>> create(
-            @PathVariable UUID projectId,
+            @PathVariable UUID workspaceId,
             @Valid @RequestBody CreateTagRequest request,
             @AuthenticationPrincipal CustomUserPrincipal principal,
             HttpServletRequest httpRequest) {
-        TagResponse response = tagService.createTag(projectId, principal.getId(), request);
+        TagResponse response = tagService.createTag(workspaceId, principal.getId(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Tag created successfully", httpRequest.getRequestURI()));
     }
 
-    @Operation(summary = "List all tags available in a project")
-    @GetMapping("/api/projects/{projectId}/tags")
+    @Operation(summary = "List all tags available in a workspace")
+    @GetMapping("/api/workspaces/{workspaceId}/tags")
     public ResponseEntity<ApiResponse<List<TagResponse>>> list(
-            @PathVariable UUID projectId,
+            @PathVariable UUID workspaceId,
             @AuthenticationPrincipal CustomUserPrincipal principal,
             HttpServletRequest httpRequest) {
-        List<TagResponse> response = tagService.listForProject(projectId, principal.getId());
+        List<TagResponse> response = tagService.listForWorkspace(workspaceId, principal.getId());
         return ResponseEntity.ok(ApiResponse.success(response, httpRequest.getRequestURI()));
+    }
+
+    @Operation(summary = "Delete a tag and detach it from all tasks")
+    @DeleteMapping("/api/tags/{tagId}")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID tagId,
+            @AuthenticationPrincipal CustomUserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        tagService.deleteTag(tagId, principal.getId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Tag deleted successfully", httpRequest.getRequestURI()));
     }
 }

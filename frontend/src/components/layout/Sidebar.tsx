@@ -2,14 +2,15 @@ import { useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import {
   Building2,
-  FolderKanban,
+  LayoutGrid,
   Trello,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { workspaceApi } from "@/api/workspaces";
-import { projectApi } from "@/api/projects";
+import { boardApi } from "@/api/boards";
+import { MyTasksWidget } from "./MyTasksWidget";
 import clsx from "clsx";
 
 interface SidebarProps {
@@ -22,29 +23,24 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
   const location = useLocation();
   const { workspaceId } = useParams<{ workspaceId?: string }>();
 
-  // Fetch workspaces
   const { data: workspaces } = useQuery({
     queryKey: ["workspaces"],
     queryFn: workspaceApi.list,
   });
 
-  const activeWorkspaceId =
-    workspaceId || workspaces?.[0]?.id;
+  const activeWorkspaceId = workspaceId || workspaces?.[0]?.id;
 
-  // Fetch projects in active workspace
-  const { data: projectsData } = useQuery({
-    queryKey: ["projects", activeWorkspaceId],
-    queryFn: () => projectApi.search(activeWorkspaceId!, { size: 20 }),
+  const { data: boards } = useQuery({
+    queryKey: ["boards", activeWorkspaceId],
+    queryFn: () => boardApi.listByWorkspace(activeWorkspaceId!),
     enabled: !!activeWorkspaceId,
     retry: false,
   });
 
-  const projects = projectsData?.content ?? [];
   const currentWorkspace = workspaces?.find((w) => w.id === activeWorkspaceId);
 
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
       {isMobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-ink-900/60 backdrop-blur-xs md:hidden"
@@ -71,13 +67,12 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
                   {currentWorkspace?.name || "Workspace"}
                 </p>
                 <p className="text-[10px] text-ink-400 font-mono truncate">
-                  /{currentWorkspace?.slug || "trello"}
+                  /{currentWorkspace?.slug || "workspace"}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Desktop Collapse Toggle */}
           <button
             onClick={() => setIsCollapsed((v) => !v)}
             className="hidden md:flex items-center justify-center rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-700 hover:text-ink-700 transition-colors ml-auto"
@@ -89,7 +84,6 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
 
         {/* Navigation Items */}
         <div className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
-          {/* Main Workspace Navigation */}
           <nav className="space-y-1">
             <Link
               to="/workspaces"
@@ -108,37 +102,37 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
 
             {activeWorkspaceId && (
               <Link
-                to={`/workspaces/${activeWorkspaceId}/projects`}
+                to={`/workspaces/${activeWorkspaceId}`}
                 onClick={onCloseMobile}
                 className={clsx(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
-                  location.pathname.includes(`/workspaces/${activeWorkspaceId}/projects`)
+                  location.pathname === `/workspaces/${activeWorkspaceId}` && !location.pathname.includes("/boards/")
                     ? "bg-accent-50 text-accent-700 dark:bg-accent-950/60 dark:text-accent-300"
                     : "text-ink-600 dark:text-ink-300 hover:bg-ink-50 dark:hover:bg-ink-700/60"
                 )}
-                title="Projects"
+                title="Boards"
               >
-                <FolderKanban className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                {!isCollapsed && <span>Projects</span>}
+                <LayoutGrid className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                {!isCollapsed && <span>Boards</span>}
               </Link>
             )}
           </nav>
 
-          {/* Projects Quick List */}
-          {!isCollapsed && projects.length > 0 && (
+          {/* Boards Quick List */}
+          {!isCollapsed && boards && boards.length > 0 && (
             <div className="pt-2 border-t border-ink-100 dark:border-ink-700">
               <div className="flex items-center justify-between px-3 py-1 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-ink-400">
-                  Projects ({projects.length})
+                  Boards ({boards.length})
                 </span>
               </div>
               <div className="space-y-0.5 max-h-48 overflow-y-auto">
-                {projects.map((p) => {
-                  const isActive = location.pathname.includes(`/projects/${p.id}`);
+                {boards.map((b) => {
+                  const isActive = location.pathname.includes(`/boards/${b.id}`);
                   return (
                     <Link
-                      key={p.id}
-                      to={`/projects/${p.id}`}
+                      key={b.id}
+                      to={`/boards/${b.id}`}
                       onClick={onCloseMobile}
                       className={clsx(
                         "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors truncate",
@@ -148,13 +142,16 @@ export function Sidebar({ isMobileOpen = false, onCloseMobile }: SidebarProps) {
                       )}
                     >
                       <Trello className="h-3.5 w-3.5 text-ink-400 flex-shrink-0" />
-                      <span className="truncate">{p.name}</span>
+                      <span className="truncate">{b.name}</span>
                     </Link>
                   );
                 })}
               </div>
             </div>
           )}
+
+          {/* My Assigned Tasks */}
+          {!isCollapsed && <MyTasksWidget />}
         </div>
       </aside>
     </>

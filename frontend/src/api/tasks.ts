@@ -2,6 +2,9 @@ import { apiClient, type ApiEnvelope } from "./axiosClient";
 import type { Priority, Task } from "@/types";
 
 export const taskApi = {
+  myTasks: () =>
+    apiClient.get<ApiEnvelope<Task[]>>("/tasks/my-tasks").then((r) => r.data.data),
+
   listForList: (boardListId: string) =>
     apiClient.get<ApiEnvelope<Task[]>>(`/board-lists/${boardListId}/tasks`).then((r) => r.data.data),
 
@@ -30,4 +33,10 @@ export const taskApi = {
 
   unassign: (taskId: string, userId: string) =>
     apiClient.delete<ApiEnvelope<void>>(`/tasks/${taskId}/assignees/${userId}`),
+
+  addTag: (taskId: string, tagId: string) =>
+    apiClient.post<ApiEnvelope<void>>(`/tasks/${taskId}/tags/${tagId}`),
+
+  removeTag: (taskId: string, tagId: string) =>
+    apiClient.delete<ApiEnvelope<void>>(`/tasks/${taskId}/tags/${tagId}`),
 };

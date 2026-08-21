@@ -27,13 +27,8 @@ public class BoardRepositoryImpl implements BoardRepository {
     }
 
     @Override
-    public List<Board> findAllByProjectId(UUID projectId) {
-        return jpaRepository.findAllByProjectId(projectId);
-    }
-
-    @Override
-    public void softDeleteByProjectId(UUID projectId) {
-        jpaRepository.softDeleteByProjectId(projectId);
+    public List<Board> findAllByWorkspaceId(UUID workspaceId) {
+        return jpaRepository.findAllByWorkspaceId(workspaceId);
     }
 
     @Override

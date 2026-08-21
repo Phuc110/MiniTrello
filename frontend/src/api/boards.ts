@@ -2,11 +2,19 @@ import { apiClient, type ApiEnvelope } from "./axiosClient";
 import type { Board, BoardListColumn } from "@/types";
 
 export const boardApi = {
-  list: (projectId: string) =>
-    apiClient.get<ApiEnvelope<Board[]>>(`/projects/${projectId}/boards`).then((r) => r.data.data),
+  listByWorkspace: (workspaceId: string) =>
+    apiClient.get<ApiEnvelope<Board[]>>(`/workspaces/${workspaceId}/boards`).then((r) => r.data.data),
 
-  create: (projectId: string, name: string) =>
-    apiClient.post<ApiEnvelope<Board>>(`/projects/${projectId}/boards`, { name }).then((r) => r.data.data),
+  create: (workspaceId: string, name: string) =>
+    apiClient
+      .post<ApiEnvelope<Board>>(`/workspaces/${workspaceId}/boards`, { name })
+      .then((r) => r.data.data),
+
+  getById: (boardId: string) =>
+    apiClient.get<ApiEnvelope<Board>>(`/boards/${boardId}`).then((r) => r.data.data),
+
+  remove: (boardId: string) =>
+    apiClient.delete<ApiEnvelope<void>>(`/boards/${boardId}`),
 
   listLists: (boardId: string) =>
     apiClient.get<ApiEnvelope<BoardListColumn[]>>(`/boards/${boardId}/lists`).then((r) => r.data.data),
@@ -20,4 +28,7 @@ export const boardApi = {
     apiClient
       .patch<ApiEnvelope<BoardListColumn>>(`/board-lists/${boardListId}/position`, payload)
       .then((r) => r.data.data),
+
+  removeList: (boardListId: string) =>
+    apiClient.delete<ApiEnvelope<void>>(`/board-lists/${boardListId}`),
 };

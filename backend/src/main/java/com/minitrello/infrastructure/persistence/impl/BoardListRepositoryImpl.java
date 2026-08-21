@@ -42,12 +42,12 @@ public class BoardListRepositoryImpl implements BoardListRepository {
     }
 
     @Override
-    public void softDeleteByProjectId(UUID projectId) {
-        jpaRepository.softDeleteByProjectId(projectId);
+    public void softDeleteByWorkspaceId(UUID workspaceId) {
+        jpaRepository.softDeleteByWorkspaceId(workspaceId);
     }
 
     @Override
-    public void softDeleteByWorkspaceId(UUID workspaceId) {
-        jpaRepository.softDeleteByWorkspaceId(workspaceId);
+    public void softDeleteById(UUID id) {
+        jpaRepository.softDeleteById(id);
     }
 }

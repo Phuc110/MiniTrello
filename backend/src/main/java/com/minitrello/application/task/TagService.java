@@ -1,11 +1,14 @@
 package com.minitrello.application.task;
 
-import com.minitrello.application.project.ProjectAuthorizationService;
 import com.minitrello.application.task.dto.CreateTagRequest;
 import com.minitrello.application.task.dto.TagResponse;
 import com.minitrello.domain.shared.exception.DuplicateResourceException;
+import com.minitrello.domain.shared.exception.ForbiddenOperationException;
+import com.minitrello.domain.shared.exception.ResourceNotFoundException;
 import com.minitrello.domain.task.Tag;
 import com.minitrello.domain.task.TagRepository;
+import com.minitrello.domain.task.TaskTagRepository;
+import com.minitrello.domain.workspace.WorkspaceMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,19 +21,20 @@ import java.util.UUID;
 public class TagService {
 
     private final TagRepository tagRepository;
-    private final ProjectAuthorizationService projectAuthorizationService;
+    private final TaskTagRepository taskTagRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
     private final TaskMapper taskMapper;
 
     @Transactional
-    public TagResponse createTag(UUID projectId, UUID callerId, CreateTagRequest request) {
-        projectAuthorizationService.requireMembership(projectId, callerId);
+    public TagResponse createTag(UUID workspaceId, UUID callerId, CreateTagRequest request) {
+        requireWorkspaceMembership(workspaceId, callerId);
 
-        if (tagRepository.existsByProjectIdAndName(projectId, request.name().trim())) {
-            throw new DuplicateResourceException("A tag with this name already exists in this project");
+        if (tagRepository.existsByWorkspaceIdAndName(workspaceId, request.name().trim())) {
+            throw new DuplicateResourceException("A tag with this name already exists in this workspace");
         }
 
         Tag tag = Tag.builder()
-                .projectId(projectId)
+                .workspaceId(workspaceId)
                 .name(request.name().trim())
                 .color(request.color())
                 .build();
@@ -40,10 +44,27 @@ public class TagService {
     }
 
     @Transactional(readOnly = true)
-    public List<TagResponse> listForProject(UUID projectId, UUID callerId) {
-        projectAuthorizationService.requireMembership(projectId, callerId);
-        return tagRepository.findAllByProjectId(projectId).stream()
+    public List<TagResponse> listForWorkspace(UUID workspaceId, UUID callerId) {
+        requireWorkspaceMembership(workspaceId, callerId);
+        return tagRepository.findAllByWorkspaceId(workspaceId).stream()
                 .map(taskMapper::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public void deleteTag(UUID tagId, UUID callerId) {
+        Tag tag = tagRepository.findById(tagId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tag", tagId));
+        requireWorkspaceMembership(tag.getWorkspaceId(), callerId);
+
+        // No JPA associations — cascade the join-table cleanup manually first.
+        taskTagRepository.deleteAllByTagId(tagId);
+        tagRepository.delete(tag);
+    }
+
+    private void requireWorkspaceMembership(UUID workspaceId, UUID callerId) {
+        if (!workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, callerId)) {
+            throw new ForbiddenOperationException("You are not a member of this workspace");
+        }
     }
 }

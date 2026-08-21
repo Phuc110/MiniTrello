@@ -7,5 +7,6 @@ public interface TaskTagRepository {
     TaskTag save(TaskTag taskTag);
     List<TaskTag> findAllByTaskId(UUID taskId);
     void deleteByTaskIdAndTagId(UUID taskId, UUID tagId);
+    void deleteAllByTagId(UUID tagId);
     boolean existsByTaskIdAndTagId(UUID taskId, UUID tagId);
 }

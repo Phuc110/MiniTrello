@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * End-to-end: register a user, build the full Workspace -> Project ->
+ * End-to-end: register a user, build the full Workspace ->
  * Board -> BoardList -> Task hierarchy through real HTTP calls, then
  * exercise drag-and-drop reordering (within a list) and moving a task
  * across lists, asserting the resulting position ordering is correct —
@@ -63,11 +63,16 @@ class TaskFlowIntegrationTest {
         String token = registerAndGetAccessToken("kanban.user@example.com", "Kanban User");
 
         String workspaceId = postAndExtract("/api/workspaces", Map.of("name", "Acme"), token, "id");
-        String projectId = postAndExtract("/api/workspaces/" + workspaceId + "/projects",
-                Map.of("name", "Redesign", "description", "d"), token, "id");
-        String boardId = postAndExtract("/api/projects/" + projectId + "/boards", Map.of("name", "Main Board"), token, "id");
-        String todoListId = postAndExtract("/api/boards/" + boardId + "/lists", Map.of("name", "To Do"), token, "id");
-        String doneListId = postAndExtract("/api/boards/" + boardId + "/lists", Map.of("name", "Done"), token, "id");
+        String boardId = postAndExtract("/api/workspaces/" + workspaceId + "/boards", Map.of("name", "Main Board"), token, "id");
+
+        // Board auto-generates 3 lists: To Do, In Progress, Done — fetch them
+        String listsBody = mockMvc.perform(get("/api/boards/" + boardId + "/lists")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode lists = objectMapper.readTree(listsBody).get("data");
+        String todoListId = lists.get(0).get("id").asText();
+        String doneListId = lists.get(2).get("id").asText();
 
         // Create three tasks in the To Do list — they should append in order.
         String taskA = postAndExtract("/api/board-lists/" + todoListId + "/tasks",

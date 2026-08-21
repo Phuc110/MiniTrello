@@ -9,7 +9,7 @@ interface DeleteConfirmModalProps {
   onClose: () => void;
   onConfirm: () => void;
   isPending: boolean;
-  entityType: "workspace" | "project";
+  entityType: "workspace" | "board";
   entityName: string;
 }
 
@@ -24,7 +24,7 @@ export function DeleteConfirmModal({
   const [confirmText, setConfirmText] = useState("");
 
   const isMatch = confirmText.trim().toLowerCase() === entityName.trim().toLowerCase();
-  const label = entityType === "workspace" ? "Workspace" : "Project";
+  const label = entityType === "workspace" ? "Workspace" : "Board";
 
   function handleClose() {
     setConfirmText("");
@@ -54,8 +54,8 @@ export function DeleteConfirmModal({
           Deleting <strong className="font-semibold">{entityName}</strong> will permanently remove
           this {entityType} and{" "}
           {entityType === "workspace"
-            ? "all projects, boards, lists, and tasks inside it"
-            : "all boards, lists, and tasks inside it"}
+            ? "all boards, lists, and tasks inside it"
+            : "all lists and tasks inside it"}
           . Members will lose access immediately.
         </div>
 

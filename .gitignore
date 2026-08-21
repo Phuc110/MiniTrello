@@ -30,3 +30,6 @@ uploads/*
 # --- Misc ---
 HELP.md
 *.local
+
+.vercel
+.env*

@@ -21,8 +21,5 @@ public interface TaskRepository {
     /** Used by the deadline notification scheduler — returns all non-deleted tasks that have a due date set. */
     List<Task> findAllWithDueDate();
 
-    void softDeleteByProjectId(UUID projectId);
-
     void softDeleteByWorkspaceId(UUID workspaceId);
 }
-

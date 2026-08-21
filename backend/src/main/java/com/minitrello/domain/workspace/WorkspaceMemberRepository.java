@@ -17,5 +17,7 @@ public interface WorkspaceMemberRepository {
     List<WorkspaceMember> findAllByUserId(UUID userId);
 
     void deleteByWorkspaceId(UUID workspaceId);
+
+    void deleteByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 }
 

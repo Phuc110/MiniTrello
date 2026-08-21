@@ -7,6 +7,7 @@ import java.util.UUID;
 public interface TagRepository {
     Tag save(Tag tag);
     Optional<Tag> findById(UUID id);
-    List<Tag> findAllByProjectId(UUID projectId);
-    boolean existsByProjectIdAndName(UUID projectId, String name);
+    List<Tag> findAllByWorkspaceId(UUID workspaceId);
+    boolean existsByWorkspaceIdAndName(UUID workspaceId, String name);
+    void delete(Tag tag);
 }

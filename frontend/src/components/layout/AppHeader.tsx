@@ -94,7 +94,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                       key={w.id}
                       onClick={() => {
                         setIsWorkspaceMenuOpen(false);
-                        navigate(`/workspaces/${w.id}/projects`);
+                        navigate(`/workspaces/${w.id}`);
                       }}
                       className="flex items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs font-medium text-ink-800 dark:text-ink-200 hover:bg-ink-50 dark:hover:bg-ink-700 transition-colors"
                     >
@@ -129,7 +129,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
             className="flex w-full items-center gap-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/60 dark:bg-ink-900/60 px-3 py-1.5 text-xs text-ink-400 hover:bg-ink-100 dark:hover:bg-ink-700 transition-colors text-left"
           >
             <Search className="h-3.5 w-3.5 text-ink-400" />
-            <span className="flex-1 truncate">Search boards, projects...</span>
+            <span className="flex-1 truncate">Search boards...</span>
             <kbd className="hidden lg:inline-block rounded border border-ink-200 dark:border-ink-600 px-1.5 py-0.5 font-mono text-[10px] text-ink-400">
               ⌘K
             </kbd>

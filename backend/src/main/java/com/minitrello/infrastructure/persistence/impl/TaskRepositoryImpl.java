@@ -52,13 +52,7 @@ public class TaskRepositoryImpl implements TaskRepository {
     }
 
     @Override
-    public void softDeleteByProjectId(UUID projectId) {
-        jpaRepository.softDeleteByProjectId(projectId);
-    }
-
-    @Override
     public void softDeleteByWorkspaceId(UUID workspaceId) {
         jpaRepository.softDeleteByWorkspaceId(workspaceId);
     }
 }
-

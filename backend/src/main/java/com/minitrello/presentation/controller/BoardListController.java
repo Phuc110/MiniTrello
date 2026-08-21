@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -64,5 +65,15 @@ public class BoardListController {
             HttpServletRequest httpRequest) {
         BoardListResponse response = boardListService.moveList(boardListId, principal.getId(), request);
         return ResponseEntity.ok(ApiResponse.success(response, "List reordered successfully", httpRequest.getRequestURI()));
+    }
+
+    @Operation(summary = "Soft-delete a list and all its tasks")
+    @DeleteMapping("/api/board-lists/{boardListId}")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID boardListId,
+            @AuthenticationPrincipal CustomUserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        boardListService.deleteList(boardListId, principal.getId());
+        return ResponseEntity.ok(ApiResponse.success(null, "List deleted successfully", httpRequest.getRequestURI()));
     }
 }

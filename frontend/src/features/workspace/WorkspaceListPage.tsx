@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -9,7 +9,6 @@ import {
   FolderKanban,
   Clock,
   ChevronRight,
-  MoreVertical,
   Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -36,8 +35,6 @@ export function WorkspaceListPage() {
   const [workspaceName, setWorkspaceName] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [deletingWorkspace, setDeletingWorkspace] = useState<Workspace | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const { data: workspaces, isLoading, isError, refetch } = useQuery({
     queryKey: ["workspaces"],
@@ -51,16 +48,19 @@ export function WorkspaceListPage() {
       setWorkspaceName("");
       setIsCreatingWorkspace(false);
       void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-      navigate(`/workspaces/${newWorkspace.id}/projects`);
+      navigate(`/workspaces/${newWorkspace.id}`);
     },
     onError: () => toast.error("Could not create workspace."),
   });
 
   const deleteWorkspaceMutation = useMutation({
     mutationFn: (id: string) => workspaceApi.remove(id),
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       toast.success("Workspace deleted");
       setDeletingWorkspace(null);
+      queryClient.setQueryData<Workspace[]>(["workspaces"], (old) =>
+        (old ?? []).filter((w) => w.id !== deletedId)
+      );
       void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
       navigate("/workspaces");
     },
@@ -141,7 +141,7 @@ export function WorkspaceListPage() {
             <EmptyState
               icon={<Building2 className="h-10 w-10 text-accent-500" />}
               title="No Workspaces Yet"
-              description="Create your first workspace to start organizing projects and boards."
+              description="Create your first workspace to start organizing boards and tasks."
               action={
                 <Button onClick={() => setIsCreatingWorkspace(true)}>
                   <Plus className="h-4 w-4" />
@@ -167,53 +167,27 @@ export function WorkspaceListPage() {
               key={workspace.id}
               className="group relative flex flex-col overflow-visible rounded-2xl border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 shadow-xs hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
             >
-              {/* ⋯ menu button */}
-              <div className="absolute top-2 right-2 z-10">
+              {/* Delete button — same style as board cards; opens the
+                  confirm modal directly. Owners only. */}
+              {isOwner && (
                 <button
-                  id={`workspace-menu-${workspace.id}`}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    setOpenMenuId(openMenuId === workspace.id ? null : workspace.id);
+                    setDeletingWorkspace(workspace);
                   }}
-                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/20 text-white hover:bg-black/40 transition-colors"
-                  aria-label="Workspace options"
+                  className="absolute top-2 right-2 z-20 flex h-7 w-7 items-center justify-center rounded-lg bg-black/20 text-white hover:bg-red-500/80 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Delete workspace"
+                  aria-label={`Delete workspace ${workspace.name}`}
                 >
-                  <MoreVertical className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
+              )}
 
-                {openMenuId === workspace.id && (
-                  <div
-                    ref={menuRef}
-                    className="absolute right-0 top-8 z-20 min-w-[160px] rounded-xl border border-ink-100 dark:border-ink-700 bg-white dark:bg-ink-800 shadow-xl py-1 animate-in fade-in zoom-in-95 duration-150"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {isOwner ? (
-                      <button
-                        id={`delete-workspace-${workspace.id}`}
-                        onClick={() => {
-                          setOpenMenuId(null);
-                          setDeletingWorkspace(workspace);
-                        }}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4 flex-shrink-0" />
-                        Delete workspace
-                      </button>
-                    ) : (
-                      <div className="px-3 py-2 text-xs font-medium text-ink-400 italic">
-                        Owner permissions required to delete
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-            {/* Card content — navigates to projects */}
+            {/* Card content — navigates to workspace detail */}
             <Link
-              to={`/workspaces/${workspace.id}/projects`}
+              to={`/workspaces/${workspace.id}`}
               className="flex flex-col flex-1"
-              onClick={() => setOpenMenuId(null)}
             >
               <div
                 className={`h-20 w-full bg-gradient-to-br ${gradientFor(workspace.name)} flex items-end px-5 pb-3 rounded-t-2xl`}
@@ -240,7 +214,7 @@ export function WorkspaceListPage() {
                   </div>
                   <div className="flex items-center gap-1 font-semibold text-accent-600 dark:text-accent-400">
                     <FolderKanban className="h-3.5 w-3.5" />
-                    <span>View Projects</span>
+                    <span>View Boards</span>
                     <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
@@ -264,21 +238,12 @@ export function WorkspaceListPage() {
         )}
       </div>
 
-      {/* Click-outside to close menu */}
-      {openMenuId && (
-        <div
-          className="fixed inset-0 z-10"
-          onClick={() => setOpenMenuId(null)}
-          aria-hidden="true"
-        />
-      )}
-
       {/* Create Workspace Modal */}
       <Modal
         isOpen={isCreatingWorkspace}
         onClose={() => setIsCreatingWorkspace(false)}
         title="Create Workspace"
-        subtitle="Workspaces group projects and team members together."
+        subtitle="Workspaces group boards and team members together."
       >
         <form
           className="space-y-4"

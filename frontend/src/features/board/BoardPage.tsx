@@ -8,68 +8,43 @@ import {
   Star,
   Search,
   X,
-  UserPlus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import dayjs from "dayjs";
-import { projectApi } from "@/api/projects";
 import { boardApi } from "@/api/boards";
 import { taskApi } from "@/api/tasks";
 import { KanbanColumn } from "./KanbanColumn";
 import { TaskModal } from "@/features/task/TaskModal";
 import { BoardFilterPopover, type BoardFilterState } from "./BoardFilterPopover";
-import { InviteMemberModal } from "@/components/workspace/InviteMemberModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import type { Task } from "@/types";
 
 export function BoardPage() {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { boardId } = useParams<{ boardId: string }>();
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [isStarred, setIsStarred] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
-  // Filter state
   const [filterState, setFilterState] = useState<BoardFilterState>({
     search: "",
     priorities: [],
     dueDate: "ALL",
   });
 
-  const projectQuery = useQuery({
-    queryKey: ["project", projectId],
-    queryFn: () => projectApi.getById(projectId!),
-    enabled: !!projectId,
+  const boardQuery = useQuery({
+    queryKey: ["board", boardId],
+    queryFn: () => boardApi.getById(boardId!),
+    enabled: !!boardId,
   });
-
-  const membersQuery = useQuery({
-    queryKey: ["project-members", projectId],
-    queryFn: () => projectApi.listMembers(projectId!),
-    enabled: !!projectId,
-  });
-
-  const boardsQuery = useQuery({
-    queryKey: ["boards", projectId],
-    queryFn: () => boardApi.list(projectId!),
-    enabled: !!projectId,
-  });
-
-  const createBoardMutation = useMutation({
-    mutationFn: () => boardApi.create(projectId!, "Main Board"),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["boards", projectId] }),
-  });
-
-  const board = boardsQuery.data?.[0];
 
   const listsQuery = useQuery({
-    queryKey: ["board-lists", board?.id],
-    queryFn: () => boardApi.listLists(board!.id),
-    enabled: !!board,
+    queryKey: ["board-lists", boardId],
+    queryFn: () => boardApi.listLists(boardId!),
+    enabled: !!boardId,
   });
 
   const lists = useMemo(
@@ -86,11 +61,11 @@ export function BoardPage() {
   });
 
   const createListMutation = useMutation({
-    mutationFn: (name: string) => boardApi.createList(board!.id, name),
+    mutationFn: (name: string) => boardApi.createList(boardId!, name),
     onSuccess: () => {
       setNewListName("");
       setIsAddingList(false);
-      void queryClient.invalidateQueries({ queryKey: ["board-lists", board?.id] });
+      void queryClient.invalidateQueries({ queryKey: ["board-lists", boardId] });
     },
     onError: () => toast.error("Couldn't create the list. Please try again."),
   });
@@ -123,7 +98,7 @@ export function BoardPage() {
       nextListId: string | null;
     }) => boardApi.moveList(boardListId, payload),
     onError: () => toast.error("Couldn't reorder the list. Reverting."),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: ["board-lists", board?.id] }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ["board-lists", boardId] }),
   });
 
   function handleDragEnd(result: DropResult) {
@@ -157,7 +132,6 @@ export function BoardPage() {
     });
   }
 
-  // Filter tasks client-side based on filterState
   const filterTask = (t: Task) => {
     if (filterState.search) {
       const query = filterState.search.toLowerCase();
@@ -182,7 +156,7 @@ export function BoardPage() {
     return true;
   };
 
-  if (projectQuery.isLoading || boardsQuery.isLoading) {
+  if (boardQuery.isLoading || listsQuery.isLoading) {
     return (
       <div className="flex h-full flex-col p-6 space-y-6">
         <Skeleton className="h-10 w-72 rounded-xl" />
@@ -195,43 +169,29 @@ export function BoardPage() {
     );
   }
 
-  if (projectQuery.isError || boardsQuery.isError) {
+  if (boardQuery.isError || listsQuery.isError) {
     return (
       <div className="mx-auto max-w-4xl p-10">
         <ErrorState
           message="Could not load this board."
           onRetry={() => {
-            void projectQuery.refetch();
-            void boardsQuery.refetch();
+            void boardQuery.refetch();
+            void listsQuery.refetch();
           }}
         />
       </div>
     );
   }
 
-  if (!board) {
-    return (
-      <div className="mx-auto max-w-2xl p-12 text-center space-y-4">
-        <Trello className="h-12 w-12 text-accent-500 mx-auto" />
-        <h2 className="font-display text-xl font-bold">No Board Created Yet</h2>
-        <p className="text-sm text-ink-400">
-          This project doesn&apos;t have a Kanban board initialized yet.
-        </p>
-        <Button
-          onClick={() => createBoardMutation.mutate()}
-          isLoading={createBoardMutation.isPending}
-        >
-          <Plus className="h-4 w-4" />
-          <span>Create Main Board</span>
-        </Button>
-      </div>
-    );
-  }
+  const board = boardQuery.data;
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-ink-100/40 dark:bg-ink-900">
-      {/* Board Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200/60 dark:border-ink-700 bg-white/80 dark:bg-ink-800/80 backdrop-blur-md px-4 py-2.5 shadow-2xs">
+      {/* Board Top Header Bar
+          relative z-30: backdrop-blur-md creates a stacking context that
+          traps the filter popover at level 0 — without this, kanban cards
+          below (later in DOM) paint on top of the popover. */}
+      <div className="relative z-30 flex flex-wrap items-center justify-between gap-3 border-b border-ink-200/60 dark:border-ink-700 bg-white/80 dark:bg-ink-800/80 backdrop-blur-md px-4 py-2.5 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-500 text-white font-bold shadow-xs">
             <Trello className="h-5 w-5" />
@@ -239,7 +199,7 @@ export function BoardPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-base font-bold text-ink-900 dark:text-paper">
-                {projectQuery.data?.name} — {board.name}
+                {board?.name}
               </h1>
               <button
                 onClick={() => setIsStarred((v) => !v)}
@@ -251,17 +211,11 @@ export function BoardPage() {
                 />
               </button>
             </div>
-            {projectQuery.data?.description && (
-              <p className="text-xs text-ink-400 line-clamp-1">
-                {projectQuery.data.description}
-              </p>
-            )}
           </div>
         </div>
 
         {/* Action Controls & Filters */}
         <div className="flex items-center gap-2">
-          {/* Search Cards Input */}
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
             <input
@@ -273,7 +227,6 @@ export function BoardPage() {
             />
           </div>
 
-          {/* Filter Popover */}
           <BoardFilterPopover
             filters={filterState}
             onChange={setFilterState}
@@ -281,28 +234,15 @@ export function BoardPage() {
               setFilterState({ search: "", priorities: [], dueDate: "ALL" })
             }
           />
-
-          {/* Members Pile & Invite Button */}
-          <div className="flex items-center gap-1.5 pl-2 border-l border-ink-200 dark:border-ink-700">
-            <div className="flex -space-x-1.5">
-              {membersQuery.data?.slice(0, 4).map((m) => (
-                <Avatar key={m.userId} name={m.fullName} size="sm" />
-              ))}
-            </div>
-            <Button
-              variant="secondary"
-              className="py-1 px-2.5 text-xs"
-              onClick={() => setIsInviteModalOpen(true)}
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Invite</span>
-            </Button>
-          </div>
         </div>
       </div>
 
-      {/* Kanban Board Drag Drop Canvas */}
-      <div className="flex-1 overflow-x-auto p-4">
+      {/* Kanban Board Drag Drop Canvas
+          min-h-0 is critical: a flex child defaults to min-height:auto, so
+          without it this row grows with its content instead of staying at the
+          viewport height — columns then overflow past the screen and the
+          per-column scroll areas never engage. */}
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-4">
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="board" direction="horizontal" type="COLUMN">
             {(provided) => (
@@ -322,6 +262,7 @@ export function BoardPage() {
                       tasks={filteredTasks}
                       isLoading={taskQueries[index]?.isLoading ?? false}
                       onTaskClick={setSelectedTask}
+                      boardId={boardId!}
                     />
                   );
                 })}
@@ -377,17 +318,8 @@ export function BoardPage() {
       {selectedTask && (
         <TaskModal
           task={selectedTask}
-          projectId={projectId}
+          workspaceId={board?.workspaceId}
           onClose={() => setSelectedTask(null)}
-        />
-      )}
-
-      {/* Invite Member Modal */}
-      {projectId && (
-        <InviteMemberModal
-          projectId={projectId}
-          isOpen={isInviteModalOpen}
-          onClose={() => setIsInviteModalOpen(false)}
         />
       )}
     </div>

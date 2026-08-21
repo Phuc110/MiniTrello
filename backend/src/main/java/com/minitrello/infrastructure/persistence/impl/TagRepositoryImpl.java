@@ -27,12 +27,17 @@ public class TagRepositoryImpl implements TagRepository {
     }
 
     @Override
-    public List<Tag> findAllByProjectId(UUID projectId) {
-        return jpaRepository.findAllByProjectId(projectId);
+    public List<Tag> findAllByWorkspaceId(UUID workspaceId) {
+        return jpaRepository.findAllByWorkspaceId(workspaceId);
     }
 
     @Override
-    public boolean existsByProjectIdAndName(UUID projectId, String name) {
-        return jpaRepository.existsByProjectIdAndName(projectId, name);
+    public boolean existsByWorkspaceIdAndName(UUID workspaceId, String name) {
+        return jpaRepository.existsByWorkspaceIdAndName(workspaceId, name);
+    }
+
+    @Override
+    public void delete(Tag tag) {
+        jpaRepository.delete(tag);
     }
 }

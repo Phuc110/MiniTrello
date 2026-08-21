@@ -7,7 +7,6 @@ import com.minitrello.application.task.dto.TagResponse;
 import com.minitrello.application.task.dto.TaskAssigneeResponse;
 import com.minitrello.application.task.dto.TaskResponse;
 import com.minitrello.application.task.dto.UpdateTaskRequest;
-import com.minitrello.domain.project.ProjectMember;
 import com.minitrello.domain.shared.PositionGenerator;
 import com.minitrello.domain.shared.exception.BusinessRuleViolationException;
 import com.minitrello.domain.shared.exception.DuplicateResourceException;
@@ -121,18 +120,13 @@ public class TaskService {
         Task task = requireTask(taskId);
         requireMembershipForTask(task, callerId);
 
-        // A task may only move between lists within the SAME project —
-        // resolving the destination's project and requiring membership
-        // there too (even though it'll always be the caller, since we
-        // enforce same-project) closes off a cross-tenant write path:
-        // without this, a caller could otherwise move a task into a
-        // board_list_id belonging to a project they have no access to,
-        // which is exactly the leakage risk flagged in the Phase 1 risk
-        // register.
-        UUID sourceProjectId = boardAccessResolver.resolveProjectIdForBoardList(task.getBoardListId());
-        UUID targetProjectId = boardAccessResolver.resolveProjectIdForBoardList(request.targetBoardListId());
-        if (!sourceProjectId.equals(targetProjectId)) {
-            throw new BusinessRuleViolationException("A task cannot be moved to a list in a different project");
+        // A task may only move between lists within the SAME workspace —
+        // resolving the destination's workspace and requiring membership
+        // there too closes off a cross-tenant write path.
+        UUID sourceWorkspaceId = boardAccessResolver.resolveWorkspaceIdForBoardList(task.getBoardListId());
+        UUID targetWorkspaceId = boardAccessResolver.resolveWorkspaceIdForBoardList(request.targetBoardListId());
+        if (!sourceWorkspaceId.equals(targetWorkspaceId)) {
+            throw new BusinessRuleViolationException("A task cannot be moved to a list in a different workspace");
         }
         boardAccessResolver.requireMembershipForBoardList(request.targetBoardListId(), callerId);
 
@@ -217,7 +211,14 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
     }
 
-    private ProjectMember requireMembershipForTask(Task task, UUID callerId) {
-        return boardAccessResolver.requireMembershipForBoardList(task.getBoardListId(), callerId);
+    private void requireMembershipForTask(Task task, UUID callerId) {
+        boardAccessResolver.requireMembershipForBoardList(task.getBoardListId(), callerId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TaskResponse> getMyTasks(UUID callerId) {
+        return taskAssigneeRepository.findAllByUserId(callerId).stream()
+                .map(ta -> toFullResponse(ta.getTask()))
+                .toList();
     }
 }

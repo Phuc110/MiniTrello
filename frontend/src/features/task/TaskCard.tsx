@@ -31,7 +31,7 @@ export function TaskCard({ task, index, onClick }: TaskCardProps) {
           {...provided.dragHandleProps}
           onClick={onClick}
           className={clsx(
-            "group relative w-full overflow-hidden rounded-xl border border-ink-100 dark:border-ink-700/80",
+            "group relative w-full flex-shrink-0 min-h-[90px] overflow-hidden rounded-xl border border-ink-100 dark:border-ink-700/80",
             "bg-white dark:bg-ink-800 p-3.5 text-left shadow-xs transition-all duration-150 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-ink-200 dark:hover:border-ink-600",
             snapshot.isDragging && "shadow-xl ring-2 ring-accent-500 rotate-1 scale-[1.02] z-50 opacity-95"
           )}

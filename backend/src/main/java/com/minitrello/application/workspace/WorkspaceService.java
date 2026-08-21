@@ -1,11 +1,11 @@
 package com.minitrello.application.workspace;
 
 import com.minitrello.application.workspace.dto.CreateWorkspaceRequest;
+import com.minitrello.application.workspace.dto.InviteMemberRequest;
+import com.minitrello.application.workspace.dto.WorkspaceMemberResponse;
 import com.minitrello.application.workspace.dto.WorkspaceResponse;
 import com.minitrello.domain.board.BoardListRepository;
 import com.minitrello.domain.board.BoardRepository;
-import com.minitrello.domain.project.ProjectMemberRepository;
-import com.minitrello.domain.project.ProjectRepository;
 import com.minitrello.domain.shared.exception.ForbiddenOperationException;
 import com.minitrello.domain.shared.exception.ResourceNotFoundException;
 import com.minitrello.domain.task.TaskRepository;
@@ -35,8 +35,6 @@ public class WorkspaceService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final UserRepository userRepository;
     private final WorkspaceMapper workspaceMapper;
-    private final ProjectRepository projectRepository;
-    private final ProjectMemberRepository projectMemberRepository;
     private final BoardRepository boardRepository;
     private final BoardListRepository boardListRepository;
     private final TaskRepository taskRepository;
@@ -97,11 +95,47 @@ public class WorkspaceService {
         }
     }
 
-    /**
-     * Server-side source of truth for whether the caller may delete the
-     * workspace: only the owner or a system ADMIN may. Kept in one place so
-     * the delete endpoint and the response flag can never disagree.
-     */
+    @Transactional(readOnly = true)
+    public List<WorkspaceMemberResponse> listMembers(UUID workspaceId, UUID callerId) {
+        requireMembership(workspaceId, callerId);
+        return workspaceMemberRepository.findAllByWorkspaceId(workspaceId).stream()
+                .map(m -> new WorkspaceMemberResponse(m.getUser().getId(), m.getUser().getEmail(), m.getUser().getFullName()))
+                .toList();
+    }
+
+    @Transactional
+    public WorkspaceMemberResponse inviteMember(UUID workspaceId, UUID callerId, InviteMemberRequest request) {
+        requireMembership(workspaceId, callerId);
+
+        User invitee = userRepository.findByEmail(request.email().trim().toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("User with email " + request.email()));
+
+        if (workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, invitee.getId())) {
+            throw new com.minitrello.domain.shared.exception.BusinessRuleViolationException("User is already a member of this workspace");
+        }
+
+        workspaceMemberRepository.save(WorkspaceMember.builder()
+                .workspace(requireWorkspace(workspaceId))
+                .user(invitee)
+                .build());
+
+        return new WorkspaceMemberResponse(invitee.getId(), invitee.getEmail(), invitee.getFullName());
+    }
+
+    @Transactional
+    public void removeMember(UUID workspaceId, UUID callerId, UUID targetUserId) {
+        requireMembership(workspaceId, callerId);
+
+        Workspace workspace = requireWorkspace(workspaceId);
+
+        // Cannot remove the owner
+        if (workspace.getOwnerId().equals(targetUserId)) {
+            throw new com.minitrello.domain.shared.exception.BusinessRuleViolationException("Cannot remove the workspace owner");
+        }
+
+        workspaceMemberRepository.deleteByWorkspaceIdAndUserId(workspaceId, targetUserId);
+    }
+
     private boolean canDelete(Workspace workspace, User caller) {
         return workspace.getOwnerId().equals(caller.getId())
                 || caller.getSystemRole() == SystemRole.ADMIN;
@@ -117,24 +151,16 @@ public class WorkspaceService {
             throw new ForbiddenOperationException("Only the workspace owner can delete it");
         }
 
-        // Cascade soft-delete from the deepest layer up so a concurrent
-        // purge job never sees orphaned children with deletedAt=null.
+        // Cascade soft-delete from the deepest layer up
         taskRepository.softDeleteByWorkspaceId(workspaceId);
         boardListRepository.softDeleteByWorkspaceId(workspaceId);
         boardRepository.softDeleteByWorkspaceId(workspaceId);
-        projectMemberRepository.deleteByWorkspaceId(workspaceId);
-        projectRepository.softDeleteByWorkspaceId(workspaceId);
         workspaceMemberRepository.deleteByWorkspaceId(workspaceId);
 
         workspace.softDelete();
         workspaceRepository.save(workspace);
     }
 
-    /**
-     * Slugs are derived from the name and de-duplicated with a numeric
-     * suffix on collision (acme-corp, acme-corp-2, ...) rather than a
-     * random suffix, so URLs stay predictable and human-friendly.
-     */
     private String generateUniqueSlug(String name) {
         String base = slugify(name);
         String candidate = base;

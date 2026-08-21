@@ -15,10 +15,9 @@ import lombok.Setter;
 import lombok.experimental.SuperBuilder;
 
 /**
- * Pure membership — no role here by design (see Phase 2 open question):
- * joining a Workspace grants no automatic Project access. Real
- * permissions come from ProjectMember rows. Workspace-level destructive
- * actions are gated by Workspace.ownerId, not by anything on this row.
+ * Pure membership — no role column here by design.
+ * Workspace-level destructive actions are gated by Workspace.ownerId.
+ * All authorization (board access, task access) resolves through this table.
  */
 @Entity
 @Table(name = "workspace_members", uniqueConstraints = {

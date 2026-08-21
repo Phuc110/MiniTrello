@@ -18,20 +18,12 @@ public interface BoardListJpaRepository extends JpaRepository<BoardList, UUID> {
     @Modifying
     @Query("""
            UPDATE BoardList bl SET bl.deletedAt = CURRENT_TIMESTAMP
-           WHERE bl.boardId IN (SELECT b.id FROM Board b WHERE b.projectId = :projectId)
-           AND bl.deletedAt IS NULL
-           """)
-    void softDeleteByProjectId(@Param("projectId") UUID projectId);
-
-    @Modifying
-    @Query("""
-           UPDATE BoardList bl SET bl.deletedAt = CURRENT_TIMESTAMP
-           WHERE bl.boardId IN (
-               SELECT b.id FROM Board b
-               WHERE b.projectId IN (SELECT p.id FROM Project p WHERE p.workspaceId = :workspaceId)
-           )
+           WHERE bl.boardId IN (SELECT b.id FROM Board b WHERE b.workspaceId = :workspaceId)
            AND bl.deletedAt IS NULL
            """)
     void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId);
-}
 
+    @Modifying
+    @Query("UPDATE BoardList bl SET bl.deletedAt = CURRENT_TIMESTAMP WHERE bl.id = :id AND bl.deletedAt IS NULL")
+    void softDeleteById(@Param("id") UUID id);
+}

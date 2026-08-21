@@ -13,10 +13,10 @@ import lombok.experimental.SuperBuilder;
 
 import java.util.UUID;
 
-/** Tags are scoped to a Project (per Phase 3 ERD: PROJECTS ||--o{ TAGS) so each project curates its own tag vocabulary rather than sharing a global list. */
+/** Tags are scoped to a Workspace so each workspace curates its own tag vocabulary rather than sharing a global list. */
 @Entity
 @Table(name = "tags", uniqueConstraints = {
-        @UniqueConstraint(name = "uq_tags_project_name", columnNames = {"project_id", "name"})
+        @UniqueConstraint(name = "uq_tags_workspace_name", columnNames = {"workspace_id", "name"})
 })
 @Getter
 @Setter
@@ -25,8 +25,8 @@ import java.util.UUID;
 @SuperBuilder
 public class Tag extends BaseEntity {
 
-    @Column(name = "project_id", nullable = false, columnDefinition = "BINARY(16)")
-    private UUID projectId;
+    @Column(name = "workspace_id", nullable = false, columnDefinition = "BINARY(16)")
+    private UUID workspaceId;
 
     @Column(nullable = false, length = 50)
     private String name;

@@ -3,6 +3,8 @@ package com.minitrello.presentation.controller;
 import com.minitrello.application.shared.ApiResponse;
 import com.minitrello.application.workspace.WorkspaceService;
 import com.minitrello.application.workspace.dto.CreateWorkspaceRequest;
+import com.minitrello.application.workspace.dto.InviteMemberRequest;
+import com.minitrello.application.workspace.dto.WorkspaceMemberResponse;
 import com.minitrello.application.workspace.dto.WorkspaceResponse;
 import com.minitrello.infrastructure.security.CustomUserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
+
+import jakarta.validation.Valid;
 
 @Tag(name = "Workspaces")
 @SecurityRequirement(name = "bearerAuth")
@@ -69,6 +73,38 @@ public class WorkspaceController {
             @PathVariable UUID workspaceId,
             @AuthenticationPrincipal CustomUserPrincipal principal) {
         workspaceService.deleteWorkspace(workspaceId, principal.getId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "List all members in a workspace")
+    @GetMapping("/{workspaceId}/members")
+    public ResponseEntity<ApiResponse<List<WorkspaceMemberResponse>>> listMembers(
+            @PathVariable UUID workspaceId,
+            @AuthenticationPrincipal CustomUserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        List<WorkspaceMemberResponse> members = workspaceService.listMembers(workspaceId, principal.getId());
+        return ResponseEntity.ok(ApiResponse.success(members, httpRequest.getRequestURI()));
+    }
+
+    @Operation(summary = "Invite a user to the workspace by email")
+    @PostMapping("/{workspaceId}/members")
+    public ResponseEntity<ApiResponse<WorkspaceMemberResponse>> inviteMember(
+            @PathVariable UUID workspaceId,
+            @Valid @RequestBody InviteMemberRequest request,
+            @AuthenticationPrincipal CustomUserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        WorkspaceMemberResponse member = workspaceService.inviteMember(workspaceId, principal.getId(), request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(member, "Member invited successfully", httpRequest.getRequestURI()));
+    }
+
+    @Operation(summary = "Remove a member from the workspace")
+    @DeleteMapping("/{workspaceId}/members/{userId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal CustomUserPrincipal principal) {
+        workspaceService.removeMember(workspaceId, principal.getId(), userId);
         return ResponseEntity.noContent().build();
     }
 }

@@ -10,18 +10,9 @@ import java.util.List;
 import java.util.UUID;
 
 public interface BoardJpaRepository extends JpaRepository<Board, UUID> {
-    List<Board> findAllByProjectId(UUID projectId);
+    List<Board> findAllByWorkspaceId(UUID workspaceId);
 
     @Modifying
-    @Query("UPDATE Board b SET b.deletedAt = CURRENT_TIMESTAMP WHERE b.projectId = :projectId AND b.deletedAt IS NULL")
-    void softDeleteByProjectId(@Param("projectId") UUID projectId);
-
-    @Modifying
-    @Query("""
-           UPDATE Board b SET b.deletedAt = CURRENT_TIMESTAMP
-           WHERE b.projectId IN (SELECT p.id FROM Project p WHERE p.workspaceId = :workspaceId)
-           AND b.deletedAt IS NULL
-           """)
+    @Query("UPDATE Board b SET b.deletedAt = CURRENT_TIMESTAMP WHERE b.workspaceId = :workspaceId AND b.deletedAt IS NULL")
     void softDeleteByWorkspaceId(@Param("workspaceId") UUID workspaceId);
 }
-

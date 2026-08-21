@@ -27,6 +27,11 @@ public class TaskAssigneeRepositoryImpl implements TaskAssigneeRepository {
     }
 
     @Override
+    public List<TaskAssignee> findAllByUserId(UUID userId) {
+        return jpaRepository.findAllByUser_Id(userId);
+    }
+
+    @Override
     @Transactional
     public void deleteByTaskIdAndUserId(UUID taskId, UUID userId) {
         jpaRepository.deleteByTask_IdAndUser_Id(taskId, userId);

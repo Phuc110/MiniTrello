@@ -10,9 +10,7 @@ public interface BoardRepository {
 
     Optional<Board> findById(UUID id);
 
-    List<Board> findAllByProjectId(UUID projectId);
-
-    void softDeleteByProjectId(UUID projectId);
+    List<Board> findAllByWorkspaceId(UUID workspaceId);
 
     void softDeleteByWorkspaceId(UUID workspaceId);
 }

@@ -19,6 +19,11 @@ import java.time.Instant;
  * impossible to accidentally leak a soft-deleted row through a forgotten
  * WHERE clause.
  *
+ * IMPORTANT: Hibernate does NOT inherit @SQLRestriction from a
+ * @MappedSuperclass. Every concrete entity extending this class MUST
+ * repeat @SQLRestriction("deleted_at IS NULL") on itself, or soft-deleted
+ * rows will silently leak through every derived-query SELECT.
+ *
  * A hard delete (real SQL DELETE, and the associated FK ON DELETE CASCADE)
  * only happens via the scheduled purge job for rows older than the
  * configured retention window — see PurgeSoftDeletedRowsJob (Sprint 10).
