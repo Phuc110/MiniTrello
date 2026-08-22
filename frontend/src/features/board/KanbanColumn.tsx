@@ -59,6 +59,7 @@ export function KanbanColumn({
     <Draggable draggableId={list.id} index={index}>
       {(columnProvided) => (
         <div
+          id={`kanban-column-${list.id}`}
           ref={columnProvided.innerRef}
           {...columnProvided.draggableProps}
           className="flex w-72 sm:w-80 flex-shrink-0 flex-col rounded-2xl border border-ink-200/60 dark:border-ink-700/60 bg-ink-100/60 dark:bg-ink-800/80 p-2.5 max-h-full shadow-xs"

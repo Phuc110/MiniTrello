@@ -203,7 +203,10 @@ public class TaskService {
         List<TagResponse> tags = taskTagRepository.findAllByTaskId(task.getId()).stream()
                 .map(taskTag -> taskMapper.toResponse(taskTag.getTag()))
                 .toList();
-        return taskMapper.toFullResponse(task, assignees, tags);
+        // Soft-delete tolerant: a task under a deleted list still resolves to
+        // its workspace (null otherwise) instead of failing the whole response.
+        UUID workspaceId = boardAccessResolver.findWorkspaceIdForBoardList(task.getBoardListId()).orElse(null);
+        return taskMapper.toFullResponse(task, workspaceId, assignees, tags);
     }
 
     private Task requireTask(UUID taskId) {

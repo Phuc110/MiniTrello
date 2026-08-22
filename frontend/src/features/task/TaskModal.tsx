@@ -41,8 +41,16 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
   const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const tagPickerRef = useRef<HTMLDivElement>(null);
 
+  // Callers opening the modal from outside a board (e.g. My Tasks in the
+  // sidebar) may not know the workspace — fall back to the one resolved by
+  // the backend on the task payload itself.
+  const resolvedWorkspaceId = workspaceId ?? task.workspaceId ?? undefined;
+
   // `task` is a snapshot prop from the board — keep a local copy of tags so
   // toggles reflect instantly without closing/reopening the window.
+  // Callers MUST pass key={task.id}: per-task state (tags below plus the
+  // react-hook-form defaults) then re-initializes whenever another task is
+  // loaded into this window, keeping everything in sync with the new task.
   const [taskTags, setTaskTags] = useState<TagDto[]>(task.tags ?? []);
 
   useEffect(() => {
@@ -79,15 +87,15 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
   });
 
   const membersQuery = useQuery({
-    queryKey: ["workspace-members", workspaceId],
-    queryFn: () => workspaceApi.listMembers(workspaceId!),
-    enabled: !!workspaceId,
+    queryKey: ["workspace-members", resolvedWorkspaceId],
+    queryFn: () => workspaceApi.listMembers(resolvedWorkspaceId!),
+    enabled: !!resolvedWorkspaceId,
   });
 
   const tagsQuery = useQuery({
-    queryKey: ["workspace-tags", workspaceId],
-    queryFn: () => tagApi.listByWorkspace(workspaceId!),
-    enabled: !!workspaceId,
+    queryKey: ["workspace-tags", resolvedWorkspaceId],
+    queryFn: () => tagApi.listByWorkspace(resolvedWorkspaceId!),
+    enabled: !!resolvedWorkspaceId,
   });
 
   const updateMutation = useMutation({
@@ -101,6 +109,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
     onSuccess: () => {
       toast.success("Task updated");
       void queryClient.invalidateQueries({ queryKey: ["tasks", task.boardListId] });
+      void queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
       onClose();
     },
     onError: () => toast.error("Couldn't update the task. Please try again."),
@@ -111,6 +120,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
     onSuccess: () => {
       toast.success("Task deleted");
       void queryClient.invalidateQueries({ queryKey: ["tasks", task.boardListId] });
+      void queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
       onClose();
     },
     onError: () => toast.error("Couldn't delete the task. Please try again."),
@@ -121,6 +131,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
     onSuccess: () => {
       toast.success("Assignee updated");
       void queryClient.invalidateQueries({ queryKey: ["tasks", task.boardListId] });
+      void queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
     },
     onError: () => toast.error("Could not update assignee."),
   });
@@ -130,6 +141,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
     onSuccess: () => {
       toast.success("Assignee removed");
       void queryClient.invalidateQueries({ queryKey: ["tasks", task.boardListId] });
+      void queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
     },
     onError: () => toast.error("Could not remove assignee."),
   });
@@ -145,6 +157,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
         added && !prev.some((t) => t.id === tagId) ? [...prev, added] : prev
       );
       void queryClient.invalidateQueries({ queryKey: ["tasks", task.boardListId] });
+      void queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
     },
     onError: () => toast.error("Could not add the tag. Please try again."),
   });
@@ -154,6 +167,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
     onSuccess: (_data, tagId) => {
       setTaskTags((prev) => prev.filter((t) => t.id !== tagId));
       void queryClient.invalidateQueries({ queryKey: ["tasks", task.boardListId] });
+      void queryClient.invalidateQueries({ queryKey: ["my-tasks"] });
     },
     onError: () => toast.error("Could not remove the tag. Please try again."),
   });
@@ -352,7 +366,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
               />
 
               {/* Tags — interactive picker */}
-              {workspaceId && (
+              {resolvedWorkspaceId && (
                 <div className="space-y-1.5">
                   <label className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-ink-400">
                     <span>Tags</span>
@@ -401,7 +415,7 @@ export function TaskModal({ task, workspaceId, onClose }: TaskModalProps) {
                     {isTagPickerOpen && (
                       <div className="absolute left-0 top-full z-[100001] mt-1 w-64 animate-in space-y-3 rounded-xl border border-gray-200 bg-white p-3 shadow-2xl fade-in zoom-in-95 duration-150 dark:border-ink-700 dark:bg-ink-800">
                         <TagPickerPopover
-                          workspaceId={workspaceId}
+                          workspaceId={resolvedWorkspaceId}
                           availableTags={tagsQuery.data ?? []}
                           isLoadingTags={tagsQuery.isLoading}
                           selectedTags={taskTags}

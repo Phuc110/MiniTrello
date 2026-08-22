@@ -10,6 +10,7 @@ import com.minitrello.domain.workspace.WorkspaceMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -52,6 +53,19 @@ public class BoardAccessResolver {
     public UUID resolveWorkspaceIdForBoardList(UUID boardListId) {
         BoardList boardList = requireBoardList(boardListId);
         return requireBoard(boardList.getBoardId()).getWorkspaceId();
+    }
+
+    /**
+     * Read-side enrichment variant of {@link #resolveWorkspaceIdForBoardList}
+     * (e.g. My Tasks / task payloads). Unlike the strict version it does NOT
+     * throw when the parent list or board was soft-deleted while its tasks
+     * remain assigned — @SQLRestriction makes those findByIds return empty and
+     * this chain just yields empty so callers can omit the field.
+     */
+    public Optional<UUID> findWorkspaceIdForBoardList(UUID boardListId) {
+        return boardListRepository.findById(boardListId)
+                .flatMap(boardList -> boardRepository.findById(boardList.getBoardId()))
+                .map(Board::getWorkspaceId);
     }
 
     private void requireWorkspaceMembership(UUID workspaceId, UUID callerId) {

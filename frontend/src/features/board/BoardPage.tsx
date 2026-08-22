@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, type DropResult } from "@hello-pangea/dnd";
 import {
@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import dayjs from "dayjs";
 import { boardApi } from "@/api/boards";
 import { taskApi } from "@/api/tasks";
+import { tagApi } from "@/api/tags";
 import { KanbanColumn } from "./KanbanColumn";
 import { TaskModal } from "@/features/task/TaskModal";
 import { BoardFilterPopover, type BoardFilterState } from "./BoardFilterPopover";
@@ -23,6 +24,7 @@ import type { Task } from "@/types";
 
 export function BoardPage() {
   const { boardId } = useParams<{ boardId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
@@ -33,12 +35,21 @@ export function BoardPage() {
     search: "",
     priorities: [],
     dueDate: "ALL",
+    tagIds: [],
   });
 
   const boardQuery = useQuery({
     queryKey: ["board", boardId],
     queryFn: () => boardApi.getById(boardId!),
     enabled: !!boardId,
+  });
+
+  // Shared cache key with TaskModal's tag picker — one fetch feeds both.
+  const workspaceId = boardQuery.data?.workspaceId;
+  const workspaceTagsQuery = useQuery({
+    queryKey: ["workspace-tags", workspaceId],
+    queryFn: () => tagApi.listByWorkspace(workspaceId!),
+    enabled: !!workspaceId,
   });
 
   const listsQuery = useQuery({
@@ -59,6 +70,54 @@ export function BoardPage() {
       enabled: !!list.id,
     })),
   });
+
+  // Deep link — /boards/:boardId?taskId=xxx (e.g. a notification click).
+  // The modal task is DERIVED from the URL instead of copied into state, so
+  // opening/closing follows the address bar with zero setState-in-effect.
+  // Plain per-render scan (a board has few lists/cards) — deliberately NOT
+  // useMemo'd: React Compiler can't preserve manual memoization over the
+  // unstable useQueries result.
+  const taskIdParam = searchParams.get("taskId");
+  let deepLinkedTask: Task | undefined;
+  let deepLinkListId: string | undefined;
+  if (taskIdParam) {
+    for (let i = 0; i < lists.length && !deepLinkedTask; i++) {
+      const found = (taskQueries[i]?.data ?? []).find((t) => t.id === taskIdParam);
+      if (found) {
+        deepLinkedTask = found;
+        deepLinkListId = lists[i].id;
+      }
+    }
+  }
+
+  const activeTask = selectedTask ?? deepLinkedTask ?? null;
+
+  // Side effect of a deep link: scroll the owning kanban column into view.
+  useEffect(() => {
+    if (!deepLinkListId) return;
+    document
+      .getElementById(`kanban-column-${deepLinkListId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [deepLinkListId]);
+
+  // If the URL carries a taskId that never resolves once everything loaded,
+  // tell the user and strip the dead param (prevents repeat toasts).
+  const hasDeepLinkedTask = !!deepLinkedTask;
+  useEffect(() => {
+    if (!taskIdParam || listsQuery.isLoading) return;
+    if (lists.length > 0 && taskQueries.some((q) => q.isLoading)) return;
+    if (!hasDeepLinkedTask) {
+      toast.error("This task doesn't exist on this board.");
+      setSearchParams({}, { replace: true });
+    }
+  }, [
+    taskIdParam,
+    hasDeepLinkedTask,
+    listsQuery.isLoading,
+    lists.length,
+    taskQueries,
+    setSearchParams,
+  ]);
 
   const createListMutation = useMutation({
     mutationFn: (name: string) => boardApi.createList(boardId!, name),
@@ -141,6 +200,12 @@ export function BoardPage() {
     }
     if (filterState.priorities.length > 0) {
       if (!filterState.priorities.includes(t.priority)) return false;
+    }
+    if (filterState.tagIds.length > 0) {
+      // A card matches when it carries AT LEAST ONE of the selected tags (OR
+      // semantics, same as Trello) — cards with no tags are filtered out.
+      const hasMatchingTag = t.tags?.some((tag) => filterState.tagIds.includes(tag.id));
+      if (!hasMatchingTag) return false;
     }
     if (filterState.dueDate !== "ALL") {
       if (filterState.dueDate === "NO_DUE_DATE" && t.dueDate) return false;
@@ -231,8 +296,9 @@ export function BoardPage() {
             filters={filterState}
             onChange={setFilterState}
             onReset={() =>
-              setFilterState({ search: "", priorities: [], dueDate: "ALL" })
+              setFilterState({ search: "", priorities: [], dueDate: "ALL", tagIds: [] })
             }
+            availableTags={workspaceTagsQuery.data ?? []}
           />
         </div>
       </div>
@@ -314,12 +380,16 @@ export function BoardPage() {
         </DragDropContext>
       </div>
 
-      {/* Task Detail Modal */}
-      {selectedTask && (
+      {/* Task Detail Modal — explicit card clicks win over the ?taskId= deep link */}
+      {activeTask && (
         <TaskModal
-          task={selectedTask}
+          key={activeTask.id}
+          task={activeTask}
           workspaceId={board?.workspaceId}
-          onClose={() => setSelectedTask(null)}
+          onClose={() => {
+            setSelectedTask(null);
+            if (searchParams.get("taskId")) setSearchParams({}, { replace: true });
+          }}
         />
       )}
     </div>

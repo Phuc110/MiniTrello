@@ -27,13 +27,19 @@ function getDueDateStatus(task: Task): { label: string; color: string; icon: Rea
 
 export function MyTasksWidget() {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // Track the ID, not a snapshot object: deriving the task from the live
+  // query cache (below) means edits made inside the modal (tags, assignees...)
+  // are reflected as soon as "my-tasks" refetches — no stale props.
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ["my-tasks"],
     queryFn: taskApi.myTasks,
     refetchInterval: 60_000,
   });
+
+  const selectedTask =
+    (tasks ?? []).find((t) => t.id === selectedTaskId) ?? null;
 
   const taskList = tasks ?? [];
   const overdueCount = taskList.filter((t) => {
@@ -77,7 +83,7 @@ export function MyTasksWidget() {
               return (
                 <button
                   key={task.id}
-                  onClick={() => setSelectedTask(task)}
+                  onClick={() => setSelectedTaskId(task.id)}
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-ink-50 dark:hover:bg-ink-700/60 transition-colors group"
                 >
                   <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${PRIORITY_STYLES[task.priority] || "bg-ink-300"}`} />
@@ -104,8 +110,10 @@ export function MyTasksWidget() {
 
       {selectedTask && (
         <TaskModal
+          key={selectedTask.id}
           task={selectedTask}
-          onClose={() => setSelectedTask(null)}
+          workspaceId={selectedTask.workspaceId ?? undefined}
+          onClose={() => setSelectedTaskId(null)}
         />
       )}
     </>

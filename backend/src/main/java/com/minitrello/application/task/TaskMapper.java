@@ -10,6 +10,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import java.util.List;
+import java.util.UUID;
 
 @Mapper(componentModel = "spring")
 public interface TaskMapper {
@@ -23,14 +24,16 @@ public interface TaskMapper {
 
     /**
      * Assembled explicitly (not auto-derived by MapStruct) because
-     * assignees/tags come from separate join-table queries in
-     * TaskService, not from a navigable relation on Task itself — see
-     * the plain-FK design note on BoardAccessResolver.
+     * workspaceId/assignees/tags come from separate lookups in TaskService,
+     * not from navigable relations on Task itself — see the plain-FK design
+     * note on BoardAccessResolver. workspaceId lets clients open the task
+     * from anywhere (e.g. My Tasks) and still load tag pickers / members.
      */
-    default TaskResponse toFullResponse(Task task, List<TaskAssigneeResponse> assignees, List<TagResponse> tags) {
+    default TaskResponse toFullResponse(Task task, UUID workspaceId, List<TaskAssigneeResponse> assignees, List<TagResponse> tags) {
         return new TaskResponse(
                 task.getId(),
                 task.getBoardListId(),
+                workspaceId,
                 task.getTitle(),
                 task.getDescription(),
                 task.getPriority(),

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Bell, CheckCheck } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -13,6 +14,10 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  // Non-null only while the header is rendered on a board page — lets the
+  // click handler detect "already viewing this board" and skip the redirect.
+  const { boardId: currentBoardId } = useParams<{ boardId: string }>();
 
   // Query all notifications, auto-refetching every 60 seconds
   const { data: notifications = [] } = useQuery({
@@ -56,9 +61,31 @@ export function NotificationBell() {
   };
 
   const handleNotificationClick = (notification: Notification) => {
+    // Step 1 — mark as read: optimistic cache patch drops the badge counter
+    // instantly; the mutation keeps the server in sync afterwards.
     if (!notification.read) {
+      queryClient.setQueryData<Notification[]>(["notifications"], (old) =>
+        old?.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
+      );
       markReadMutation.mutate(notification.id);
     }
+
+    // Step 2 — navigate / open the task detail.
+    if (!notification.boardId || !notification.taskId) {
+      // Task no longer exists — nothing to deep-link to.
+      toast("The related task is no longer available.");
+    } else if (currentBoardId === notification.boardId) {
+      // Already viewing the right board: no redirect/reload needed — just
+      // sync the ?taskId= param, BoardPage's deep-link effect opens the modal.
+      navigate(`/boards/${currentBoardId}?taskId=${notification.taskId}`, {
+        replace: true,
+      });
+    } else {
+      navigate(`/boards/${notification.boardId}?taskId=${notification.taskId}`);
+    }
+
+    // Step 3 — close the popover.
+    setIsOpen(false);
   };
 
   return (
@@ -118,6 +145,11 @@ export function NotificationBell() {
                   <div
                     key={item.id}
                     onClick={() => handleNotificationClick(item)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") handleNotificationClick(item);
+                    }}
                     className={`flex cursor-pointer items-start gap-3 p-3.5 transition-colors ${
                       item.read
                         ? "bg-white dark:bg-ink-800 opacity-75 hover:bg-ink-50/60 dark:hover:bg-ink-700/50"

@@ -10,6 +10,7 @@ import java.util.UUID;
 public record TaskResponse(
         UUID id,
         UUID boardListId,
+        UUID workspaceId,
         String title,
         String description,
         Priority priority,

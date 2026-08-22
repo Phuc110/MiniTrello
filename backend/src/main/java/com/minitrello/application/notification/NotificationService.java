@@ -1,9 +1,12 @@
 package com.minitrello.application.notification;
 
+import com.minitrello.domain.board.BoardList;
+import com.minitrello.domain.board.BoardListRepository;
 import com.minitrello.domain.notification.Notification;
 import com.minitrello.domain.notification.NotificationRepository;
 import com.minitrello.domain.shared.exception.ForbiddenOperationException;
 import com.minitrello.domain.shared.exception.ResourceNotFoundException;
+import com.minitrello.domain.task.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +19,8 @@ import java.util.UUID;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final TaskRepository taskRepository;
+    private final BoardListRepository boardListRepository;
 
     /** Returns ALL notifications for the caller (newest-first). */
     @Transactional(readOnly = true)
@@ -67,6 +72,7 @@ public class NotificationService {
         return new NotificationResponse(
                 n.getId(),
                 n.getTaskId(),
+                resolveBoardId(n),
                 n.getType(),
                 n.getTitle(),
                 n.getMessage(),
@@ -74,5 +80,21 @@ public class NotificationService {
                 n.getCreatedAt(),
                 n.getReadAt()
         );
+    }
+
+    /**
+     * task -> boardList -> board walk for deep-linking. Strict (respects
+     * @SQLRestriction) on purpose: if the task/list/board was soft-deleted,
+     * navigating there would dead-end, so we hand back null and let the
+     * client skip the navigation step.
+     */
+    private UUID resolveBoardId(Notification n) {
+        if (n.getTaskId() == null) {
+            return null;
+        }
+        return taskRepository.findById(n.getTaskId())
+                .flatMap(task -> boardListRepository.findById(task.getBoardListId()))
+                .map(BoardList::getBoardId)
+                .orElse(null);
     }
 }

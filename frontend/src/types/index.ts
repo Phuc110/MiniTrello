@@ -52,6 +52,8 @@ export interface TagDto {
 export interface Task {
   id: string;
   boardListId: string;
+  /** Resolved server-side (list → board → workspace); null if the parent list was soft-deleted. */
+  workspaceId?: string | null;
   title: string;
   description: string | null;
   priority: Priority;
@@ -76,6 +78,8 @@ export type NotificationType = "DEADLINE_SOON" | "DUE_TODAY" | "OVERDUE";
 export interface Notification {
   id: string;
   taskId: string;
+  /** Resolved server-side (task → list → board) for deep-linking; null if the task no longer exists. */
+  boardId?: string | null;
   type: NotificationType;
   title: string;
   message: string;
